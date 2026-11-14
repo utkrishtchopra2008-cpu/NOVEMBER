@@ -31,18 +31,16 @@ Finding lifecycle (New → Investigating → Validated → Resolved), severity s
 
 ## Proposed MVP architecture
 
-This is a baseline for the hackathon, not a locked implementation decision.
-
-- **Frontend:** React dashboard for intake, evidence matrix, review, impact map, and export.
-- **Backend:** Python + FastAPI modular monolith.
-- **Storage:** PostgreSQL for analyses, reports, claims, evidence, relationships, and review decisions.
-- **GitHub client:** read repository content and PR/commit diffs by immutable SHA.
+- **Frontend:** React dashboard deployed as a static single-page app on Firebase Hosting.
+- **API/backend:** Python + FastAPI for intake, LLM/GitHub orchestration, deterministic checks, correlation, review actions, and packet generation.
+- **Data platform:** Supabase is part of the planned backend. The exact split between FastAPI, Supabase Postgres, and any Supabase Auth/Storage/Edge Functions must be confirmed before implementation.
+- **GitHub client:** read repository content and PR/commit diffs by immutable SHA; keep credentials server-side.
 - **Claim extraction:** LLM returns schema-validated structured claims and explicit assumptions.
 - **Verification:** deterministic checks against fetched source; never let the LLM determine whether a reference exists.
 - **Correlation:** show explainable candidates; require human confirmation to merge.
 - **Export:** generate Markdown/JSON from stored evidence and decisions.
 
-Suggested backend modules: reports, GitHub, verification, correlation, review, and export. Keep one deployable application for the hackathon.
+FastAPI's deployment runtime is not selected. Firebase Hosting serves the React app; route API requests to a separate FastAPI host only after that host is chosen. Keep one deployable API application for the hackathon.
 
 ## Demo path
 
@@ -52,6 +50,12 @@ Use three prepared reports against one fixed commit: a valid code reference, an 
 
 Full SAST/DAST, CVE database, automated exploitability detection, enterprise RBAC, and automatic finding closure.
 
+## Implementation documents
+
+- [Feature workflows](FEATURES.md)
+- [Security implementation guide](SECURITY_GUIDE.md)
+- [Working rules](AGENTS.md)
+
 ## Decision rule
 
-Treat this brief as the product source of truth. Ask the user when a needed product, stack, API, or behavior choice is unspecified; do not silently invent requirements. See [AGENTS.md](AGENTS.md) for implementation rules.
+Treat this brief as the product source of truth. Ask the user when a needed product, stack, API, deployment target, or behavior choice is unspecified; do not silently invent requirements.
