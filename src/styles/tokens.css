@@ -1,0 +1,25 @@
+:root {
+  color-scheme: light;
+  --vf-bg: #F4EFE6;
+  --vf-surface: #EDE5D6;
+  --vf-white: #FFFFFF;
+  --vf-ink: #223326;
+  --vf-muted: #69736A;
+  --vf-line: #D1C7B7;
+  --vf-line-strong: #223326;
+  --vf-green: #1E4D2B;
+  --vf-green-2: #2D6A4F;
+  --vf-green-pale: #D8F3DC;
+  --vf-green-text: #1B4332;
+  --vf-red: #D84A5B;
+  --vf-red-hover: #C0394B;
+  --vf-red-pale: #FDECEA;
+  --vf-red-text: #7B1E1E;
+  --vf-amber: #FEF3C7;
+  --vf-amber-text: #78350F;
+  --vf-shadow: 4px 4px 0 rgba(34, 51, 38, .15);
+  --vf-shadow-small: 3px 3px 0 rgba(34, 51, 38, .12);
+  --vf-radius: 3px;
+  --vf-font: "Space Grotesk", "Segoe UI", sans-serif;
+  --vf-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}

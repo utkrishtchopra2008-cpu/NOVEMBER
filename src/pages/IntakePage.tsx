@@ -1,0 +1,1 @@
+export { IntakePage as default } from "./Pages";

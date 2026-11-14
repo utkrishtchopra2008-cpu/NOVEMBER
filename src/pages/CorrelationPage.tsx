@@ -1,0 +1,1 @@
+export { CorrelationPage as default } from "./Pages";
