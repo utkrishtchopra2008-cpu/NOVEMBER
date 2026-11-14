@@ -44,6 +44,7 @@ def test_complete_frontend_journey(client):
     assert decision.status_code == 200
     packet = client.get(f'/api/findings/{id}/packet').json()
     assert packet['related_reports'][0]['decision'] == 'KEPT_SEPARATE'
+    assert len(packet['finding']['reviews']) == 1
     assert 'APPROVED' in packet['markdown']
     download = client.get(f'/api/findings/{id}/packet.md')
     assert download.status_code == 200 and 'attachment;' in download.headers['content-disposition']
@@ -52,6 +53,9 @@ def test_complete_frontend_journey(client):
     assert impact.json()['current_commit_sha'] == HEAD
     assert impact.json()['changed_files'] == ['auth.py']
     assert any(x['flag'] == 'RETEST_REQUIRED' for x in impact.json()['impacts'])
+    history = client.get(f"/api/analyses/{analysis['id']}/impact-history")
+    assert history.status_code == 200 and len(history.json()) == 1
+    assert history.json()[0]['result']['current_commit_sha'] == HEAD
     assert client.get('/api/findings/' + id).json()['lifecycle'] == 'Validated'
     assert client.get(f'/api/findings/{id}/issue-draft').json()['published'] is False
 
@@ -99,6 +103,15 @@ def test_reference_verification_and_temporal_movement():
     assert verify(base, duplicate, 'https://github.com/a/b', BASE).verification_status == 'Requires manual investigation'
 
 
+def test_unverified_baseline_change_requires_manual_mapping():
+    base = ClaimInput(original_excerpt='bad line reference', assertion='login exists', reference=Reference(file_path='auth.py', function_name='login', start_line=999))
+    claim = verify(base, SOURCES['auth.py'], 'https://github.com/a/b', BASE)
+    assert claim.verification_status == 'Inconsistent reference'
+    changed = SOURCES['auth.py'].replace('return db.execute(query)', 'return None')
+    result = temporal(claim, SOURCES['auth.py'], changed, 'https://github.com/a/b', HEAD, 'finding')
+    assert result.flag == 'MANUAL_MAPPING_REQUIRED'
+
+
 def test_ownership_and_stale_update(client):
     data = intake(client)
     store = client.app.state.store
@@ -136,5 +149,26 @@ def test_persistence_after_restart(tmp_path):
     settings = Settings(_env_file=None, database_url=f'sqlite:///{tmp_path}/persistent.db')
     with TestClient(create_app(settings)) as client:
         data = intake(client)
+        assert client.post('/api/impact-analysis', json={'analysis_id': data['id'], 'new_commit_sha': 'HEAD'}).status_code == 200
     with TestClient(create_app(settings)) as client:
         assert client.get('/api/findings/' + data['findings'][0]['id']).status_code == 200
+        history = client.get(f"/api/analyses/{data['id']}/impact-history")
+        assert history.status_code == 200 and len(history.json()) == 1
+
+
+def test_maritime_syntax_job_is_owner_scoped_and_persisted(tmp_path):
+    settings = Settings(_env_file=None, database_url=f'sqlite:///{tmp_path}/maritime.db', maritime_token='fake')
+    with TestClient(create_app(settings)) as client:
+        analysis = intake(client)
+        finding = analysis['findings'][0]
+        claim = next(c for c in finding['claims'] if c['verification_status'] == 'Verified reference')
+        async def fake_sandbox(analysis_id, source):
+            assert analysis_id == analysis['id'] and 'def login' in source
+            return 'sbx-test', 0, 'Python syntax parsed in an isolated sandbox.'
+        client.app.state.maritime.check_python_syntax = fake_sandbox
+        response = client.post(f"/api/findings/{finding['id']}/sandbox-check", json={'claim_id': claim['id']})
+        assert response.status_code == 201, response.text
+        assert response.json()['status'] == 'PASSED'
+        saved = client.get('/api/findings/' + finding['id']).json()
+        assert saved['verification_jobs'][0]['sandbox_id'] == 'sbx-test'
+        assert saved['verification_jobs'][0]['commit_sha'] == BASE

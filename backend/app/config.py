@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     supabase_publishable_key: str = ''
     github_token: str = ''
     prune_api_key: str = ''
+    maritime_token: str = ''
     llm_model: str = ''
     max_body_bytes: int = 350000
 

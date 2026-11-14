@@ -8,6 +8,7 @@ from app.config import Settings
 from app.demo import BASE, sample
 from app.extraction import extract
 from app.main import create_app
+from app.maritime import Maritime
 from app.models import ImpactInput, Report
 from app.source import GitHub
 
@@ -68,6 +69,28 @@ def test_prune_schema_and_original_excerpt(bad):
     assert calls[0].url == 'https://api.withprune.com/v1/chat/completions'
     assert calls[0].headers['X-Prune-Cache'] == 'exact'
     assert BASE in json.loads(calls[0].content)['messages'][1]['content']
+
+
+def test_maritime_uses_isolated_fixed_python_parser_and_deletes_sandbox():
+    calls = []
+    def handler(req):
+        calls.append(req)
+        if req.url.path == '/api/sandboxes/ephemeral':
+            return httpx.Response(201, json={'id': 'sbx-test-1', 'dataPlaneUrl': 'https://api-sbx-test.sb.mtm.sh/v1', 'secret': 'sandbox-secret'})
+        if req.url.path.endswith('/commands'):
+            return httpx.Response(200, json={'exitCode': 0, 'stdout': 'syntax-ok', 'stderr': ''})
+        return httpx.Response(200, json={'state': 'ended'})
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
+            assert await Maritime(client, 'fake-key').check_python_syntax('analysis-1', 'def login():\n    return True\n') == (
+                'sbx-test-1', 0, 'Python syntax parsed in an isolated sandbox.')
+    asyncio.run(run())
+    assert [call.method for call in calls] == ['POST', 'POST', 'DELETE']
+    assert json.loads(calls[0].content)['network']['internet']['mode'] == 'none'
+    assert calls[1].headers['X-Maritime-Token'] == 'sandbox-secret'
+    command = json.loads(calls[1].content)['cmd']
+    assert 'ast.parse' in command and 'exec(' not in command
+    assert 'sandbox-secret' not in calls[0].content.decode()
 
 
 def test_auth_dependency_rejects_and_isolates_tokens(tmp_path):

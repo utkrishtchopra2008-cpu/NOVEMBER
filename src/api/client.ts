@@ -2,7 +2,7 @@ import { createApi, type Analysis as ApiAnalysis, type Finding as ApiFinding, ty
 import { demoFindings, DEMO_REPOSITORY, DEMO_SHA } from "../data/demo";
 import { getDemoState, mockCorrelationDecision, mockImpact, mockIntake, mockLifecycle, mockReview } from "./mock";
 import type {
-  CorrelationCandidate, Finding, ImpactPayload, ImpactResult, IntakePayload, IntakeResponse,
+  CorrelationCandidate, Finding, ImpactHistoryEntry, ImpactPayload, ImpactResult, IntakePayload, IntakeResponse,
   IssueDraft, LifecycleStatus, PacketData, ReviewPayload
 } from "../types";
 
@@ -28,6 +28,10 @@ export async function getApiMode(): Promise<ApiMode> {
     throw new Error("Unexpected backend mode.");
   }
   return capabilities.mode;
+}
+
+export async function getIntegrationCapabilities() {
+  return api ? apiClient().capabilities() : null;
 }
 
 const verificationMap = {
@@ -76,6 +80,11 @@ function mapFinding(source: ApiFinding): Finding {
     businessImpact: source.business_impact,
     reviewerNotes: latestReview?.notes || "",
     decision: latestReview?.decision,
+    reviewHistory: (source.reviews || []).map((review) => ({
+      id: review.id || "", decision: review.decision, notes: review.notes,
+      reviewerId: review.reviewer_id, createdAt: review.created_at || "",
+    })),
+    verificationJobs: source.verification_jobs || [],
     createdAt: source.created_at ? new Date(source.created_at).toLocaleString() : "Imported",
   };
 }
@@ -182,11 +191,13 @@ export async function submitCorrelationDecision(
 
 export async function getPacket(id: string): Promise<PacketData> {
   if (!api) {
+    const finding = await getFinding(id);
     return {
-      finding: await getFinding(id),
+      finding,
       relatedReports: [],
       markdown: "",
       warning: "Local demo packet; no backend evidence was retrieved.",
+      jsonPayload: { finding, related_reports: [], markdown: "", warning: "Source-reference verification does not prove exploitability." },
     };
   }
   const packet = await apiClient().packet(id);
@@ -195,6 +206,7 @@ export async function getPacket(id: string): Promise<PacketData> {
     relatedReports: (packet.related_reports || []).map((pair) => mapCorrelation(pair, packet.finding.analysis_id)),
     markdown: packet.markdown,
     warning: packet.warning,
+    jsonPayload: packet,
   };
 }
 
@@ -226,36 +238,37 @@ export async function analyzeImpact(payload: ImpactPayload): Promise<ImpactResul
     ...(payload.pullRequestUrl ? { pr_url: payload.pullRequestUrl } : { new_commit_sha: payload.commitSha }),
   };
   const result = await apiClient().impact(input);
+  return mapImpactResult(result, payload.pullRequestUrl || result.current_commit_sha);
+}
+
+function mapImpactResult(result: ApiSchemas["ImpactResult"], reference: string): ImpactResult {
   const impacts = result.impacts.map((item) => ({
-    findingId: item.finding_id,
-    claimId: item.claim_id,
-    filePath: item.file_path,
-    flag: item.flag,
-    reason: item.reason,
-    original: item.original,
-    current: item.current,
-    diff: item.diff,
-    currentVerificationStatus: item.current_verification_status,
+    findingId: item.finding_id, claimId: item.claim_id, filePath: item.file_path,
+    flag: item.flag, reason: item.reason, original: item.original, current: item.current,
+    diff: item.diff, currentVerificationStatus: item.current_verification_status,
   }));
-  const changedFiles = result.changed_files.map((path) => {
-    const related = impacts.filter((item) => item.filePath === path);
-    return {
-      path,
-      claimsAffected: related.length,
-      linkedFindingIds: [...new Set(related.map((item) => item.findingId))],
-      retestRequired: related.some((item) => item.flag === "RETEST_REQUIRED"),
-      manualReviewRequired: related.some((item) => item.flag === "MANUAL_MAPPING_REQUIRED"),
-    };
-  });
   return {
-    analysisId: result.analysis_id,
-    reference: payload.pullRequestUrl || result.current_commit_sha,
-    summary: result.warning,
-    originalCommitSha: result.original_commit_sha,
-    currentCommitSha: result.current_commit_sha,
-    changedFiles,
-    impacts,
-    warning: result.warning,
-    changedFilesScope: result.changed_files_scope,
+    analysisId: result.analysis_id, reference, summary: result.warning,
+    originalCommitSha: result.original_commit_sha, currentCommitSha: result.current_commit_sha,
+    changedFiles: result.changed_files.map((path) => {
+      const related = impacts.filter((item) => item.filePath === path);
+      return { path, claimsAffected: related.length, linkedFindingIds: [...new Set(related.map((item) => item.findingId))],
+        retestRequired: related.some((item) => item.flag === "RETEST_REQUIRED"),
+        manualReviewRequired: related.some((item) => item.flag === "MANUAL_MAPPING_REQUIRED") };
+    }), impacts, warning: result.warning, changedFilesScope: result.changed_files_scope,
   };
+}
+
+export async function getImpactHistory(analysisId: string): Promise<ImpactHistoryEntry[]> {
+  if (!api) return [];
+  return (await apiClient().impactHistory(analysisId)).map((entry) => ({
+    id: entry.id || entry.result.current_commit_sha,
+    createdAt: entry.created_at || "",
+    result: mapImpactResult(entry.result, entry.result.current_commit_sha),
+  }));
+}
+
+export async function runSandboxCheck(findingId: string, claimId: string) {
+  if (!api) throw new Error("Connect FastAPI to run an isolated sandbox check.");
+  return apiClient().sandboxCheck(findingId, claimId);
 }

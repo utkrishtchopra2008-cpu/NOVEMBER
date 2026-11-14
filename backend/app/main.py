@@ -17,8 +17,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from .config import Settings
 from .demo import DemoSource, sample
 from .extraction import extract
+from .maritime import Maritime
 from .models import (Analysis, ClaimInput, Correlation, CorrelationDecision, Finding,
-    ImpactInput, ImpactResult, Intake, LifecycleInput, Packet, Review, ReviewInput, now)
+    ImpactHistoryEntry, ImpactInput, ImpactResult, Intake, LifecycleInput, MaritimeJob, MaritimeJobInput,
+    Packet, Review, ReviewInput, now)
 from .source import GitHub, temporal, verify
 from .store import Store
 
@@ -88,6 +90,7 @@ def create_app(settings=None, source=None):
         async with httpx.AsyncClient(timeout=45, follow_redirects=False) as client:
             app.state.client = client
             app.state.source = source or (DemoSource() if settings.mode == 'demo' else GitHub(client, settings.github_token))
+            app.state.maritime = Maritime(client, settings.maritime_token)
             yield
         app.state.store.engine.dispose()
 
@@ -145,7 +148,7 @@ def create_app(settings=None, source=None):
 
     @app.get('/api/capabilities')
     def capabilities():
-        return {'mode': settings.mode, 'github_issue_push': False, 'jira_issue_push': False, 'maritime_execution': False,
+        return {'mode': settings.mode, 'github_issue_push': False, 'jira_issue_push': False, 'maritime_execution': bool(settings.maritime_token),
             'claim_extraction': 'prune' if settings.mode == 'live' else 'structured_json_or_manual', 'intake_response': 'synchronous'}
 
     @app.get('/api/demo', response_model=Intake)
@@ -250,8 +253,37 @@ def create_app(settings=None, source=None):
             'github_url': url if settings.mode == 'live' and len(url) < 8000 else None,
             'published': False, 'message': 'Review and submit in GitHub, or copy this draft into Jira. No issue was created.'}
 
+    @app.post('/api/findings/{id}/sandbox-check', response_model=MaritimeJob, status_code=201)
+    async def sandbox_check(id: str, body: MaritimeJobInput, user=Depends(owner)):
+        if not settings.maritime_token:
+            raise HTTPException(503, 'Maritime sandbox checks are not configured')
+        throttle(user)
+        if slots.locked():
+            raise HTTPException(429, 'Analysis capacity reached; retry shortly', headers={'Retry-After': '10'})
+        async with slots:
+            try:
+                async with asyncio.timeout(75):
+                    analysis, version, finding = app.state.store.finding(user, id)
+                    claim = next((item for item in finding.claims if item.id == body.claim_id), None)
+                    if claim is None:
+                        raise HTTPException(404, 'Claim not found')
+                    path = claim.reference.file_path
+                    if claim.verification_status != 'Verified reference' or not path or not path.endswith('.py'):
+                        raise HTTPException(409, 'Sandbox syntax checks require a verified Python file reference')
+                    source = await app.state.source.source(finding.repo_url, finding.commit_sha, path)
+                    if source is None:
+                        raise HTTPException(409, 'Referenced file is unavailable at the finding commit')
+                    sandbox_id, exit_code, message = await app.state.maritime.check_python_syntax(analysis.id, source)
+                    result = MaritimeJob(finding_id=id, claim_id=claim.id, file_path=path, commit_sha=finding.commit_sha,
+                        sandbox_id=sandbox_id, status='PASSED' if exit_code == 0 else 'FAILED', exit_code=exit_code, message=message)
+                    finding.verification_jobs.append(result)
+                    app.state.store.save(user, analysis, version)
+                    return result
+            except TimeoutError:
+                raise HTTPException(504, 'Maritime syntax check timed out; finding state is unchanged')
+
     async def compute_impact(body, user):
-        analysis, _ = app.state.store.get(user, body.analysis_id)
+        analysis, version = app.state.store.get(user, body.analysis_id)
         first = analysis.findings[0]
         sha = await app.state.source.target(first.repo_url, body)
         cache, changed, impacts = {}, set(), []
@@ -268,7 +300,15 @@ def create_app(settings=None, source=None):
                 if old != new:
                     changed.add(path)
                 impacts.append(temporal(claim, old, new, first.repo_url, sha, finding.id))
-        return ImpactResult(analysis_id=analysis.id, original_commit_sha=first.commit_sha, current_commit_sha=sha, changed_files=sorted(changed), impacts=impacts)
+        result = ImpactResult(analysis_id=analysis.id, original_commit_sha=first.commit_sha, current_commit_sha=sha, changed_files=sorted(changed), impacts=impacts)
+        analysis.impact_history.append(ImpactHistoryEntry(result=result))
+        app.state.store.save(user, analysis, version)
+        return result
+
+    @app.get('/api/analyses/{analysis_id}/impact-history', response_model=list[ImpactHistoryEntry])
+    def impact_history(analysis_id: str, user=Depends(owner)):
+        analysis, _ = app.state.store.get(user, analysis_id)
+        return analysis.impact_history
 
     @app.post('/api/impact-analysis', response_model=ImpactResult)
     async def impact(body: ImpactInput, user=Depends(owner)):

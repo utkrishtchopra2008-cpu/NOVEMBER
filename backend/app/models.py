@@ -113,6 +113,7 @@ class Finding(Model):
     severity: Literal['Unassessed', 'Low', 'Medium', 'High', 'Critical'] = 'Unassessed'
     business_impact: str = 'Requires reviewer assessment'
     reviews: list[Review] = Field(default_factory=list)
+    verification_jobs: list['MaritimeJob'] = Field(default_factory=list)
     missing_evidence: list[str] = Field(default_factory=list)
     investigation_steps: list[str] = Field(default_factory=lambda: ['Establish reproduction prerequisites and affected permissions.', 'Reproduce the claimed behavior in an authorized environment.'])
     extraction_metadata: dict = Field(default_factory=dict)
@@ -140,6 +141,7 @@ class Analysis(Model):
     status: Literal['completed'] = 'completed'
     findings: list[Finding] = Field(default_factory=list)
     correlations: list[Correlation] = Field(default_factory=list)
+    impact_history: list['ImpactHistoryEntry'] = Field(default_factory=list)
     created_at: str = Field(default_factory=now)
 
 
@@ -181,6 +183,29 @@ class ImpactResult(Model):
     changed_files_scope: Literal['referenced_files'] = 'referenced_files'
     impacts: list[ImpactItem]
     warning: str = 'Code changes require retesting; no finding has been resolved automatically.'
+
+
+class ImpactHistoryEntry(Model):
+    id: str = Field(default_factory=uid)
+    created_at: str = Field(default_factory=now)
+    result: ImpactResult
+
+
+class MaritimeJobInput(Model):
+    claim_id: str
+
+
+class MaritimeJob(Model):
+    id: str = Field(default_factory=uid)
+    finding_id: str
+    claim_id: str
+    file_path: str
+    commit_sha: SHA
+    sandbox_id: str
+    status: Literal['PASSED', 'FAILED']
+    exit_code: int
+    created_at: str = Field(default_factory=now)
+    message: str
 
 
 class Packet(Model):

@@ -7,12 +7,12 @@ import { CodeSnippet } from "./CodeSnippet";
 function buildMarkdown(finding: Finding, relatedReports: CorrelationCandidate[]) {
   return `# ${finding.title}\n\n**Finding:** ${finding.id}  \n**Severity:** ${finding.severity}  \n**Status:** ${finding.lifecycle}  \n**Repository:** ${finding.repository}  \n**Commit:** \`${finding.commitSha}\`\n\n## Original report\n\n${finding.originalReport}\n\n## Business impact\n\n${finding.businessImpact || "Requires reviewer assessment"}\n\n## Related reports\n\n${relatedReports.map((pair) => `- ${pair.id}: ${pair.findingIds.join(", ")} — ${pair.reasons.join(" ")}`).join("\n") || "- No related reports recorded"}\n\n## Claims and verification\n\n${finding.claims.map((claim) => `### ${claim.id} — ${claim.title}\n\n- **Status:** ${claim.status}\n- **Reference:** \`${claim.filePath}:${claim.lineStart}-${claim.lineEnd}\`\n- **Function:** \`${claim.functionName}\`\n- **Assertion:** ${claim.assertion}\n- **Reason:** ${claim.reason}\n\n\`\`\`text\n${claim.snippet.join("\n")}\n\`\`\`\n`).join("\n")}\n## Missing evidence\n\n${finding.missingEvidence.map((item) => `- ${item}`).join("\n") || "- None recorded"}\n\n## Investigation steps\n\n${(finding.investigationSteps || []).map((item) => `- ${item}`).join("\n") || "- No investigation steps recorded"}\n\n## Reviewer decision\n\n${finding.decision || "Pending review"}\n\n${finding.reviewerNotes || "No reviewer notes recorded."}\n\n---\n*Reference verification does not establish exploitability. Code changes do not establish remediation.*\n`;
 }
-export function PacketViewer({ finding, relatedReports = [], packetMarkdown, issueDraft }: { finding: Finding; relatedReports?: CorrelationCandidate[]; packetMarkdown?: string; issueDraft?: IssueDraft | null }) {
+export function PacketViewer({ finding, relatedReports = [], packetMarkdown, packetJson, issueDraft }: { finding: Finding; relatedReports?: CorrelationCandidate[]; packetMarkdown?: string; packetJson?: unknown; issueDraft?: IssueDraft | null }) {
   const [tab, setTab] = useState<"rendered" | "markdown" | "json">("rendered");
   const [copied, setCopied] = useState(false);
   const { notify } = useToast();
   const markdown = useMemo(() => packetMarkdown || buildMarkdown(finding, relatedReports), [finding, packetMarkdown, relatedReports]);
-  const json = useMemo(() => JSON.stringify({ finding, relatedReports, packetVersion: "1.0", evidenceDisclaimer: "Reference verification does not establish exploitability." }, null, 2), [finding, relatedReports]);
+  const json = useMemo(() => JSON.stringify(packetJson ?? { finding, relatedReports, packetVersion: "1.0", evidenceDisclaimer: "Reference verification does not establish exploitability." }, null, 2), [finding, relatedReports, packetJson]);
   const raw = tab === "json" ? json : markdown;
   async function copy(text = raw, success = "Packet copied to clipboard.") {
     try { await navigator.clipboard.writeText(text); setCopied(true); notify(success); window.setTimeout(() => setCopied(false), 1500); }
@@ -50,6 +50,7 @@ export function PacketViewer({ finding, relatedReports = [], packetMarkdown, iss
       <h3>Missing evidence</h3><ul>{finding.missingEvidence.map((item) => <li key={item}>{item}</li>)}</ul>
       <h3>Investigation steps</h3><ul>{(finding.investigationSteps || []).map((item) => <li key={item}>{item}</li>)}</ul>
       <h3>Reviewer outcome</h3><p>{finding.decision || "Pending human review"} {finding.reviewerNotes ? `— ${finding.reviewerNotes}` : ""}</p>
+      {!!finding.reviewHistory?.length && <><h3>Review history</h3><ul>{finding.reviewHistory.map((review) => <li key={review.id}><strong>{review.decision.replaceAll("_", " ")}</strong> · {new Date(review.createdAt).toLocaleString()} · {review.notes}</li>)}</ul></>}
       <div className="packet-disclaimer">Reference verification establishes source-reference consistency only. It does not prove exploitability. A changed code path does not prove remediation.</div>
       <button className="button button-secondary button-small" onClick={() => void prepareIssue()}>Prepare issue draft <ExternalLink size={14} /></button>
       {issueDraft && <p className="packet-reason">{issueDraft.message}</p>}

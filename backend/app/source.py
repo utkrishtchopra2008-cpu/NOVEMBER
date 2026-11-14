@@ -114,6 +114,8 @@ def temporal(claim, old, new, repo, sha, finding_id):
         flag, reason = 'MANUAL_MAPPING_REQUIRED', 'Reference is missing at both revisions; reviewer must locate the code.'
     elif old == new:
         flag, reason = 'NO_REFERENCE_CHANGE', 'Referenced file is unchanged; no fix is inferred.'
+    elif claim.verification_status != VERIFIED:
+        flag, reason = 'MANUAL_MAPPING_REQUIRED', 'Original reference was not verified at the baseline commit; a reviewer must establish the mapping before retesting.'
     elif claim.reference.function_name and current.verification_status == VERIFIED and claim.verification_status == VERIFIED:
         # Compare complete function bodies, not truncated display snippets.
         def body(source):
