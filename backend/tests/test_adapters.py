@@ -71,6 +71,18 @@ def test_prune_schema_and_original_excerpt(bad):
     assert BASE in json.loads(calls[0].content)['messages'][1]['content']
 
 
+@pytest.mark.parametrize(('status', 'expected'), [(429, 429), (402, 503), (403, 422), (500, 502)])
+def test_prune_failures_return_safe_actionable_errors(status, expected):
+    async def run():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(lambda _: httpx.Response(status, headers={'X-Prune-Shield-Code': 'policy_block'}))) as client:
+            config = Settings(_env_file=None).model_copy(update={'mode': 'live', 'prune_api_key': 'fake', 'llm_model': 'configured-model'})
+            with pytest.raises(HTTPException) as exc:
+                await extract(client, config, Report(title='Auth', content='login in auth.py'), 'https://github.com/a/b', BASE, 'user', 'run')
+            assert exc.value.status_code == expected
+            assert 'fake' not in str(exc.value.detail)
+    asyncio.run(run())
+
+
 def test_maritime_uses_isolated_fixed_python_parser_and_deletes_sandbox():
     calls = []
     def handler(req):
@@ -110,4 +122,5 @@ def test_auth_dependency_rejects_and_isolates_tokens(tmp_path):
         for path in (f'/api/findings/{id}', f'/api/findings/{id}/packet', '/api/correlations?analysis_id=' + data['id']):
             assert client.get(path, headers={'Authorization': 'Bearer bob'}).status_code == 404
         assert client.post(f'/api/findings/{id}/review', json={'decision': 'APPROVED', 'notes': 'attack'}, headers={'Authorization': 'Bearer bob'}).status_code == 404
+        assert client.post(f'/api/findings/{id}/context', json={'severity': 'High', 'business_impact': 'attack'}, headers={'Authorization': 'Bearer bob'}).status_code == 404
         assert client.get(f'/api/findings/{id}', headers={'Authorization': 'Bearer alice'}).status_code == 200

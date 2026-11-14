@@ -1,13 +1,14 @@
 import { createApi, type Analysis as ApiAnalysis, type Finding as ApiFinding, type Schemas as ApiSchemas } from "../../shared/client";
 import { demoFindings, DEMO_REPOSITORY, DEMO_SHA } from "../data/demo";
-import { getDemoState, mockCorrelationDecision, mockImpact, mockIntake, mockLifecycle, mockReview } from "./mock";
+import { getDemoState, mockCorrelationDecision, mockFindingContext, mockImpact, mockIntake, mockLifecycle, mockReview } from "./mock";
 import type {
-  CorrelationCandidate, Finding, ImpactHistoryEntry, ImpactPayload, ImpactResult, IntakePayload, IntakeResponse,
+  CorrelationCandidate, Finding, FindingContextPayload, ImpactHistoryEntry, ImpactPayload, ImpactResult, IntakePayload, IntakeResponse,
   IssueDraft, LifecycleStatus, PacketData, ReviewPayload
 } from "../types";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-export const isDemoMode = !API_BASE;
+export const isLocalMockMode = !API_BASE;
+export let isDemoMode = isLocalMockMode;
 export type ApiMode = "local" | "demo" | "live";
 let accessTokenProvider: () => Promise<string | null> = async () => null;
 const api = API_BASE ? createApi(API_BASE, () => accessTokenProvider()) : null;
@@ -22,11 +23,12 @@ function apiClient() {
 
 // Never silently fall back to local fixtures when a configured API is unavailable.
 export async function getApiMode(): Promise<ApiMode> {
-  if (!api) return "local";
+  if (!api) { isDemoMode = true; return "local"; }
   const capabilities = await apiClient().capabilities();
   if (capabilities.mode !== "demo" && capabilities.mode !== "live") {
     throw new Error("Unexpected backend mode.");
   }
+  isDemoMode = capabilities.mode === "demo";
   return capabilities.mode;
 }
 
@@ -164,6 +166,12 @@ export async function getFinding(id: string): Promise<Finding> {
 
 export async function submitReview(id: string, payload: ReviewPayload): Promise<Finding> {
   return api ? mapFinding(await apiClient().review(id, payload)) : mockReview(id, payload);
+}
+
+export async function updateFindingContext(id: string, payload: FindingContextPayload): Promise<Finding> {
+  if (!api) return mockFindingContext(id, payload);
+  const severity = { UNASSESSED: "Unassessed", LOW: "Low", MEDIUM: "Medium", HIGH: "High", CRITICAL: "Critical" } as const;
+  return mapFinding(await apiClient().context(id, { severity: severity[payload.severity], business_impact: payload.businessImpact.trim() }));
 }
 
 export async function updateLifecycle(id: string, lifecycle: "Resolved" | "Investigating", notes: string): Promise<Finding> {

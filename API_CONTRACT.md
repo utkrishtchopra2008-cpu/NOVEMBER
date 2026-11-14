@@ -18,6 +18,7 @@ Requests and responses use snake_case JSON. Success responses are direct objects
 | Correlation | GET /api/correlations?analysis_id=... → Correlation[] |
 | Pair decision | POST /api/correlations/{id}/decision?analysis_id=... → Correlation |
 | Review | POST /api/findings/{id}/review → Finding |
+| Severity/business impact | POST /api/findings/{id}/context → Finding |
 | Lifecycle | POST /api/findings/{id}/lifecycle → Finding |
 | Packet preview/JSON | GET /api/findings/{id}/packet → Packet |
 | Markdown download | GET /api/findings/{id}/packet.md → text/markdown |
@@ -38,6 +39,8 @@ Intake is synchronous and returns only when completed (up to 180 seconds). Show 
 Claim badges use exactly `Verified reference`, `Inconsistent reference`, `Requires manual investigation` in verification_status. Code lines are `{number, text, kind}`; source_url is an immutable GitHub link in live mode and null for fictional demo fixtures. Escape snippet text in React. Do not interpret a verified reference as verified exploitability.
 
 Review: `{ "decision": "APPROVED" | "REJECTED" | "MORE_EVIDENCE", "notes": "required" }`. Approval moves to Validated; rejection/more evidence moves to Investigating with the actual decision stored in reviews. Rejection does not mean resolved. Explicit lifecycle requests `{ "lifecycle": "Resolved", "notes": "retest evidence" }` can resolve only a Validated finding; impact never changes lifecycle. Review feedback is recorded, not automatically used for model training.
+
+Reviewer context: `{ "severity": "Unassessed" | "Low" | "Medium" | "High" | "Critical", "business_impact": "required" }`. These are separate human assessments. Updates are owner-scoped, append context history, and do not change verification status or lifecycle.
 
 Correlation decision: `{ "decision": "CONFIRMED_DUPLICATE" | "KEPT_SEPARATE" }`. Confirmation links evidence; it does not delete/merge findings. A reviewed pair cannot be silently overwritten.
 

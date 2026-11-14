@@ -31,8 +31,14 @@ async def extract(client, settings, report, repo, sha, owner, run_id):
     response = await client.post('https://api.withprune.com/v1/chat/completions', json=payload, headers={
         'Authorization': 'Bearer ' + settings.prune_api_key, 'X-Prune-Cache': 'exact',
         'X-Prune-Customer-Id': owner, 'X-Prune-Feature-Id': 'claim_extraction', 'X-Prune-Run-Id': run_id})
+    if response.status_code == 429:
+        raise HTTPException(429, 'Prune rate or spend limit reached; retry later or review the configured limit')
+    if response.status_code == 402:
+        raise HTTPException(503, 'Prune account quota requires attention before extraction can continue')
+    if response.status_code == 403 and response.headers.get('X-Prune-Shield-Code'):
+        raise HTTPException(422, 'Prune Shield blocked this extraction under the configured security policy')
     if response.status_code != 200:
-        raise HTTPException(502, 'Claim extraction unavailable or blocked by provider policy; retry later')
+        raise HTTPException(502, 'Claim extraction unavailable; retry later')
     try:
         data = response.json()
         if data['choices'][0].get('finish_reason') != 'stop':

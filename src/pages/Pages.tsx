@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Activity, AlertTriangle, ArrowUpRight, BadgeCheck, BookOpen, Braces, Check, CheckCircle2, ChevronRight, Clock3, FileCode2, FileSearch, GitBranch, GitCommitHorizontal, GitPullRequest, Layers3, ListFilter, Network, Plus, RefreshCw, ShieldAlert, ShieldCheck, Sparkles, Target, UploadCloud, XCircle, ArrowRight } from "lucide-react";
-import { analyzeImpact, getCorrelations, getFinding, getFindings, getImpactHistory, getIntegrationCapabilities, getIssueDraft, getPacket, isDemoMode, runSandboxCheck, submitCorrelationDecision, submitIntake, submitReview, updateLifecycle } from "../api/client";
-import type { CorrelationCandidate, Finding, ImpactHistoryEntry, ImpactResult, ReviewDecision } from "../types";
+import { analyzeImpact, getCorrelations, getFinding, getFindings, getImpactHistory, getIntegrationCapabilities, getIssueDraft, getPacket, isDemoMode, isLocalMockMode, runSandboxCheck, submitCorrelationDecision, submitIntake, submitReview, updateFindingContext, updateLifecycle } from "../api/client";
+import type { CorrelationCandidate, Finding, ImpactHistoryEntry, ImpactResult, ReviewDecision, Severity } from "../types";
 import { useToast } from "../context/ToastContext";
 import { IntakeForm } from "../components/IntakeForm";
 import { ClaimMatrixCard } from "../components/ClaimMatrixCard";
@@ -37,15 +37,15 @@ export function OverviewPage() {
   const navigate = useNavigate();
   const verified = findings.flatMap((finding) => finding.claims).filter((claim) => claim.status === "VERIFIED_REFERENCE").length;
   const manual = findings.flatMap((finding) => finding.claims).filter((claim) => claim.status === "MANUAL_INVESTIGATION").length;
-  const retest = isDemoMode ? 1 : 0;
+  const sourceLabel = isLocalMockMode ? "Local mock investigation" : isDemoMode ? "Controlled API demo" : "Evidence workbench";
   return <div className="page-stack">
     <PageHeading kicker="COMMAND CENTER / WORKSPACE OVERVIEW" title="Investigation overview" description="A traceable view of reported claims, source evidence, and reviewer actions." action={<Link className="button button-primary" to="/intake"><Plus size={16} /> New investigation</Link>} />
-    <div className="overview-banner"><div className="banner-icon"><Activity size={20} /></div><div><strong>{isDemoMode ? "Local mock investigation" : "Evidence workbench"}</strong><p>Analysis is pinned to immutable commit references. Review every claim before treating it as actionable.</p></div><span className="banner-meta">{isDemoMode ? "LOCAL DEMO" : "CONNECTED API"}</span></div>
+    <div className="overview-banner"><div className="banner-icon"><Activity size={20} /></div><div><strong>{sourceLabel}</strong><p>Analysis is pinned to immutable commit references. Review every claim before treating it as actionable.</p></div><span className="banner-meta">{isLocalMockMode ? "LOCAL MOCK" : isDemoMode ? "API DEMO" : "LIVE API"}</span></div>
     <div className="stats-grid">
       <StatCard label="Total findings" value={loading ? "—" : String(findings.length).padStart(2, "0")} caption="Across loaded investigations" icon={Layers3} />
-      <StatCard label={isDemoMode ? "Sample reference checks" : "Verified references"} value={loading ? "—" : String(verified).padStart(2, "0")} caption="Source references confirmed" icon={ShieldCheck} />
+      <StatCard label={isDemoMode ? "Demo reference checks" : "Verified references"} value={loading ? "—" : String(verified).padStart(2, "0")} caption={isDemoMode ? "Controlled fixtures only" : "Source references confirmed"} icon={ShieldCheck} />
       <StatCard label="Manual review" value={loading ? "—" : String(manual).padStart(2, "0")} caption="Evidence gap or ambiguity" icon={Clock3} tone="amber" />
-      <StatCard label="Retest triggers" value={isDemoMode ? "01" : "—"} caption={isDemoMode ? "Illustrative local demo" : "Run impact analysis"} icon={GitPullRequest} tone="red" />
+      <StatCard label="Retest triggers" value="—" caption="Run impact analysis" icon={GitPullRequest} tone="red" />
     </div>
     {error && <div className="form-error" role="alert">{error}</div>}
     <div className="overview-grid">
@@ -82,7 +82,7 @@ export function IntakePage() {
     try {
       const result = await submitIntake(payload);
       setAnalysisId(result.analysisId);
-      notify(isDemoMode ? `Local mock created ${result.findings.length} example findings; uploaded text was not independently analyzed.` : `Analysis complete · ${result.findings.length} findings created.`, isDemoMode ? "info" : "success");
+      notify(isLocalMockMode ? `Local mock created ${result.findings.length} example findings; uploaded text was not independently analyzed.` : isDemoMode ? `Demo API analyzed ${result.findings.length} controlled fixture findings; no external repository was checked.` : `Analysis complete · ${result.findings.length} findings created.`, isDemoMode ? "info" : "success");
       if (result.findings[0]) navigate(`/matrix/${result.findings[0].id}`);
     } catch (issue) {
       notify(issue instanceof Error ? issue.message : "Intake failed. Check the API connection.", "error");
@@ -127,7 +127,7 @@ export function MatrixPage() {
   return <div className="page-stack">
     <PageHeading kicker="INVESTIGATION / SOURCE EVIDENCE" title="Claim evidence matrix" description="Each assertion is evaluated independently against the exact source revision." action={<Link className="button button-secondary" to={`/packet/${finding.id}`}><BookOpen size={15} /> View packet</Link>} />
     <div className="finding-context panel"><div className="finding-context-main"><div className="finding-title-line"><span className="finding-id">{finding.id}</span><StatusBadge value={finding.severity} /><StatusBadge value={finding.lifecycle} /></div><h2>{finding.title}</h2><p>{finding.repository}</p><div className="commit-context"><GitCommitHorizontal size={15} /><span>LOCKED COMMIT</span><code>{finding.commitSha}</code></div></div><div className="finding-context-side"><span className="micro-label">ORIGINAL REPORT</span><p>{finding.originalReport}</p><Link to={`/review/${finding.id}`} className="text-link">Review finding <ArrowUpRight size={14} /></Link></div></div>
-    <div className="callout-banner"><ShieldCheck size={18} /><div><strong>{isDemoMode ? "Illustrative local evidence — not independently verified" : "Reference verification is not an exploitability verdict."}</strong><span>{isDemoMode ? "Sample references are prebuilt UI examples. Newly entered reports are not checked until you connect FastAPI." : "These checks establish whether source references are consistent at this SHA. They do not prove that the described behavior is reachable or exploitable."}</span></div></div>
+    <div className="callout-banner"><ShieldCheck size={18} /><div><strong>{isLocalMockMode ? "Illustrative local evidence — not independently verified" : isDemoMode ? "Controlled demo fixture — not an external repository" : "Reference verification is not an exploitability verdict."}</strong><span>{isLocalMockMode ? "Sample references are prebuilt UI examples. Newly entered reports are not checked until you connect FastAPI." : isDemoMode ? "The API checked references against its bundled fixture only. Live GitHub source is not being checked in demo mode." : "These checks establish whether source references are consistent at this SHA. They do not prove that the described behavior is reachable or exploitable."}</span></div></div>
     <div className="matrix-toolbar"><div><span className="eyebrow">ATOMIC CLAIMS</span><h2>{finding.claims.length} claims extracted</h2></div><div className="filter-tabs"><button className={filter === "ALL" ? "selected" : ""} onClick={() => setFilter("ALL")}>All <b>{finding.claims.length}</b></button><button className={filter === "VERIFIED_REFERENCE" ? "selected" : ""} onClick={() => setFilter("VERIFIED_REFERENCE")}>Verified</button><button className={filter === "INCONSISTENT_REFERENCE" ? "selected" : ""} onClick={() => setFilter("INCONSISTENT_REFERENCE")}>Inconsistent</button><button className={filter === "MANUAL_INVESTIGATION" ? "selected" : ""} onClick={() => setFilter("MANUAL_INVESTIGATION")}>Manual</button></div></div>
     <div className="claim-list">{claims.map((claim) => { const canSandbox = maritimeEnabled && claim.status === "VERIFIED_REFERENCE" && claim.filePath.endsWith(".py"); const job = sandboxResults[claim.id]; return <ClaimMatrixCard key={claim.id} claim={claim} onReview={() => navigate(`/review/${finding.id}`)} onSandboxCheck={canSandbox ? () => void sandboxCheck(claim.id) : undefined} sandboxBusy={sandboxBusy === claim.id} sandboxStatus={job?.status} sandboxMessage={job?.message} />; })}{!claims.length && <div className="empty-state">No claims match this verification filter.</div>}</div>
   </div>;
@@ -177,15 +177,19 @@ export function ReviewPage() {
   const { findings, setFindings, loading } = useFindings();
   const [selected, setSelected] = useState<Finding | null>(null);
   const [notes, setNotes] = useState("");
+  const [severity, setSeverity] = useState<Severity>("UNASSESSED");
+  const [businessImpact, setBusinessImpact] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
   const { notify } = useToast();
   useEffect(() => {
     if (findingId) {
-      getFinding(findingId).then((finding) => { setSelected(finding); setNotes(finding.reviewerNotes || ""); }).catch(() => setSelected(null));
-    } else if (findings.length) {
-      setSelected((current) => current || findings[0]);
-      setNotes((current) => current || findings[0].reviewerNotes || "");
+      getFinding(findingId).then((finding) => { setSelected(finding); setNotes(finding.reviewerNotes || ""); setSeverity(finding.severity); setBusinessImpact(finding.businessImpact || ""); }).catch(() => setSelected(null));
+    } else if (findings.length && !selected) {
+      setSelected(findings[0]);
+      setNotes(findings[0].reviewerNotes || "");
+      setSeverity(findings[0].severity);
+      setBusinessImpact(findings[0].businessImpact || "");
     }
   }, [findingId, findings]);
   async function decide(decision: ReviewDecision) {
@@ -212,18 +216,32 @@ export function ReviewPage() {
     } catch (error) { notify(error instanceof Error ? error.message : "Lifecycle update failed.", "error"); }
     finally { setSubmitting(false); }
   }
+  async function saveContext() {
+    if (!selected || !businessImpact.trim()) { notify("Add a short business impact assessment before saving.", "error"); return; }
+    setSubmitting(true);
+    try {
+      const updated = await updateFindingContext(selected.id, { severity, businessImpact });
+      setSelected(updated);
+      setFindings((current) => current.map((item) => item.id === updated.id ? updated : item));
+      notify("Severity and business impact saved.");
+    } catch (error) { notify(error instanceof Error ? error.message : "Context update failed.", "error"); }
+    finally { setSubmitting(false); }
+  }
   if (loading) return <div className="loading-panel"><RefreshCw /> Loading review queue…</div>;
   return <div className="page-stack">
     <PageHeading kicker="INVESTIGATION / REVIEW GATE" title="Human review queue" description="A reviewer owns every disposition. AI extraction and source checks do not make final decisions." />
     <div className="review-layout">
       <section className="panel review-queue"><div className="panel-heading"><div><span className="eyebrow">INCOMING FINDINGS</span><h2>Review queue <span className="count-pill">{findings.length}</span></h2></div><ListFilter size={17} /></div>
-        {findings.map((finding) => <button className={`review-queue-item ${selected?.id === finding.id ? "active" : ""}`} key={finding.id} onClick={() => { setSelected(finding); setNotes(finding.reviewerNotes || ""); navigate(`/review/${finding.id}`, { replace: true }); }}><div className="review-queue-item-top"><span className="finding-id">{finding.id}</span><StatusBadge value={finding.severity} compact /></div><strong>{finding.title}</strong><div className="review-queue-item-foot"><StatusBadge value={finding.lifecycle} compact /><span>{finding.createdAt}</span></div></button>)}
+        {findings.map((finding) => <button className={`review-queue-item ${selected?.id === finding.id ? "active" : ""}`} key={finding.id} onClick={() => { setSelected(finding); setNotes(finding.reviewerNotes || ""); setSeverity(finding.severity); setBusinessImpact(finding.businessImpact || ""); navigate(`/review/${finding.id}`, { replace: true }); }}><div className="review-queue-item-top"><span className="finding-id">{finding.id}</span><StatusBadge value={finding.severity} compact /></div><strong>{finding.title}</strong><div className="review-queue-item-foot"><StatusBadge value={finding.lifecycle} compact /><span>{finding.createdAt}</span></div></button>)}
         {!findings.length && <div className="empty-state">No findings available to review.</div>}
       </section>
       <section className="panel review-detail">
         {selected ? <>
           <div className="review-detail-head"><div><span className="eyebrow">REVIEW DETAIL / {selected.id}</span><h2>{selected.title}</h2><p>{selected.repository} · <code>{selected.commitSha.slice(0, 12)}…</code></p></div><StatusBadge value={selected.lifecycle} /></div>
           <div className="review-evidence"><div className="review-evidence-head"><strong>Evidence snapshot</strong><StatusBadge value={selected.claims[0]?.status || "MANUAL_INVESTIGATION"} compact /></div><p>{selected.claims[0]?.assertion || "No structured claim was returned."}</p><div className="review-reference"><FileCode2 size={15} /><code>{selected.claims[0]?.filePath}:{selected.claims[0]?.lineStart}-{selected.claims[0]?.lineEnd}</code><span>{selected.claims[0]?.functionName}</span></div></div>
+          <label className="field-label" htmlFor="finding-severity">Technical severity <span className="field-hint">SEPARATE FROM BUSINESS IMPACT</span></label><select id="finding-severity" className="impact-select" value={severity} onChange={(event) => setSeverity(event.target.value as Severity)}><option value="UNASSESSED">Unassessed</option><option value="LOW">Low</option><option value="MEDIUM">Medium</option><option value="HIGH">High</option><option value="CRITICAL">Critical</option></select>
+          <label className="field-label" htmlFor="business-impact">Business impact</label><textarea id="business-impact" className="review-notes" rows={3} value={businessImpact} onChange={(event) => setBusinessImpact(event.target.value)} placeholder="Describe affected users, data, operations, and relevant business context…" />
+          <button disabled={submitting || !businessImpact.trim()} className="button button-secondary" onClick={() => void saveContext()}><ShieldCheck size={15} /> Save severity & impact</button>
           <label className="field-label" htmlFor="review-notes">Reviewer notes <span className="field-hint">REQUIRED AUDIT TRAIL</span></label><textarea id="review-notes" className="review-notes" rows={5} value={notes} onChange={(event) => setNotes(event.target.value)} placeholder="Record what was verified, which assumptions remain, and what evidence is needed…" />
           <div className="review-note-hint">Notes are stored with this review decision. They are not automatically used to train a model.</div>
           <div className="review-actions"><button disabled={submitting || !notes.trim()} className="button button-danger-outline" onClick={() => void decide("REJECTED")}><XCircle size={16} /> Reject</button><button disabled={submitting || !notes.trim()} className="button button-secondary" onClick={() => void decide("MORE_EVIDENCE")}><AlertTriangle size={16} /> Request more evidence</button><button disabled={submitting || !notes.trim()} className="button button-primary" onClick={() => void decide("APPROVED")}><CheckCircle2 size={16} /> Approve finding</button></div>
@@ -260,7 +278,7 @@ export function ImpactPage() {
   const { findings } = useFindings();
   const analysisIds = useMemo(() => [...new Set(findings.map((finding) => finding.analysisId).filter(Boolean))], [findings]);
   const [analysisId, setAnalysisId] = useState("");
-  const [reference, setReference] = useState(isDemoMode ? "DEMO" : "HEAD");
+  const [reference, setReference] = useState(isLocalMockMode ? "DEMO" : "HEAD");
   const [result, setResult] = useState<ImpactResult | null>(null);
   const [history, setHistory] = useState<ImpactHistoryEntry[]>([]);
   const [selectedHistoryId, setSelectedHistoryId] = useState("");
@@ -281,7 +299,7 @@ export function ImpactPage() {
   }, [analysisIds, analysisId]);
   useEffect(() => {
     let active = true;
-    if (analysisId && !isDemoMode) getImpactHistory(analysisId).then((entries) => {
+    if (analysisId && !isLocalMockMode) getImpactHistory(analysisId).then((entries) => {
       if (!active) return;
       setHistory(entries);
       const latest = entries[entries.length - 1];
@@ -299,19 +317,19 @@ export function ImpactPage() {
     try {
       const next = await analyzeImpact(isPr ? { analysisId, pullRequestUrl: reference.trim() } : { analysisId, commitSha: reference.trim() });
       setResult(next);
-      if (!isDemoMode) {
+      if (!isLocalMockMode) {
         const entries = await getImpactHistory(analysisId);
         setHistory(entries);
         setSelectedHistoryId(entries[entries.length - 1]?.id || "");
       }
-      notify(isDemoMode ? "Local preview only; no GitHub change was checked." : "Impact analysis updated. Review retest and manual-mapping flags.", isDemoMode ? "info" : "success");
+      notify(isLocalMockMode ? "Local preview only; no GitHub change was checked." : isDemoMode ? "Controlled demo impact shown; no external GitHub change was checked." : "Impact analysis updated. Review retest and manual-mapping flags.", isDemoMode ? "info" : "success");
     } catch (issue) { notify(issue instanceof Error ? issue.message : "Impact analysis failed.", "error"); }
     finally { setBusy(false); }
   }
   return <div className="page-stack">
     <PageHeading kicker="CONTINUOUS / PATCH INTELLIGENCE" title="Patch-to-finding impact" description="Compare a later PR or commit with historical evidence and identify claims that need retesting." />
     <form className="impact-input-panel panel" onSubmit={submit}>
-      <div className="impact-input-copy"><span className="eyebrow">CHANGESET TARGET</span><strong>Which revision changed?</strong><small>{isDemoMode ? "Use DEMO for the illustrative stored fixture. Other revisions are not checked offline." : "Use a PR URL or branch, tag or commit ref (for example HEAD)."}</small></div>
+      <div className="impact-input-copy"><span className="eyebrow">CHANGESET TARGET</span><strong>Which revision changed?</strong><small>{isLocalMockMode ? "Use DEMO for the illustrative stored fixture. Other revisions are not checked offline." : isDemoMode ? "Use HEAD or the bundled demo PR target; only the controlled fixture is available." : "Use a PR URL or branch, tag or commit ref (for example HEAD)."}</small></div>
       <div className="impact-input-control">
         <label className="field-label" htmlFor="impact-analysis">Source analysis</label>
         <select id="impact-analysis" className="impact-select" value={analysisId} onChange={(event) => setAnalysisId(event.target.value)} disabled={!analysisIds.length}>

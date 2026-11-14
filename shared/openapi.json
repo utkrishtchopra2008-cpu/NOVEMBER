@@ -281,6 +281,71 @@
         }
       }
     },
+    "/api/findings/{id}/context": {
+      "post": {
+        "summary": "Finding Context",
+        "operationId": "finding_context_api_findings__id__context_post",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FindingContextInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Finding"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/findings/{id}/lifecycle": {
       "post": {
         "summary": "Lifecycle",
@@ -1182,6 +1247,34 @@
           "claims"
         ],
         "title": "Finding"
+      },
+      "FindingContextInput": {
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "Unassessed",
+              "Low",
+              "Medium",
+              "High",
+              "Critical"
+            ],
+            "title": "Severity"
+          },
+          "business_impact": {
+            "type": "string",
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Business Impact"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "severity",
+          "business_impact"
+        ],
+        "title": "FindingContextInput"
       },
       "HTTPValidationError": {
         "properties": {

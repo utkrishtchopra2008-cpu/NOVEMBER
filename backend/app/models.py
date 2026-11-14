@@ -96,6 +96,19 @@ class ReviewInput(Model):
     notes: str = Field(min_length=1, max_length=10000)
 
 
+class FindingContextInput(Model):
+    severity: Literal['Unassessed', 'Low', 'Medium', 'High', 'Critical']
+    business_impact: str = Field(min_length=1, max_length=4000)
+
+    @field_validator('business_impact')
+    @classmethod
+    def nonblank_impact(cls, value):
+        value = value.strip()
+        if not value:
+            raise ValueError('Business impact must contain text')
+        return value
+
+
 class Review(ReviewInput):
     id: str = Field(default_factory=uid)
     reviewer_id: str

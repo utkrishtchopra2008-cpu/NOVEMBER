@@ -103,6 +103,15 @@ def test_reference_verification_and_temporal_movement():
     assert verify(base, duplicate, 'https://github.com/a/b', BASE).verification_status == 'Requires manual investigation'
 
 
+def test_empty_file_reference_without_line_claim_is_consistent():
+    claim = ClaimInput(original_excerpt='Empty file referenced', assertion='File exists', reference=Reference(file_path='empty.py'))
+    result = verify(claim, '', 'https://github.com/a/b', BASE)
+    assert result.verification_status == 'Verified reference'
+    assert result.verification_reason == 'Referenced file exists at this commit.'
+    assert result.snippet == []
+    assert result.source_url == f'https://github.com/a/b/blob/{BASE}/empty.py'
+
+
 def test_unverified_baseline_change_requires_manual_mapping():
     base = ClaimInput(original_excerpt='bad line reference', assertion='login exists', reference=Reference(file_path='auth.py', function_name='login', start_line=999))
     claim = verify(base, SOURCES['auth.py'], 'https://github.com/a/b', BASE)
@@ -124,6 +133,18 @@ def test_ownership_and_stale_update(client):
     with pytest.raises(HTTPException) as exc:
         store.save('local-demo', a, version)
     assert exc.value.status_code == 409
+
+
+def test_finding_context_is_editable_and_persisted(client):
+    analysis = intake(client)
+    finding_id = analysis['findings'][0]['id']
+    payload = {'severity': 'High', 'business_impact': 'Could expose account data to another user.'}
+    response = client.post(f'/api/findings/{finding_id}/context', json=payload)
+    assert response.status_code == 200
+    assert response.json()['severity'] == payload['severity']
+    assert response.json()['business_impact'] == payload['business_impact']
+    assert client.get(f'/api/findings/{finding_id}').json()['severity'] == 'High'
+    assert client.post(f'/api/findings/{finding_id}/context', json={'severity': 'High', 'business_impact': '   '}).status_code == 422
 
 
 def test_limits_cors_and_review_validation(client):

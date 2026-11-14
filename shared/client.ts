@@ -38,6 +38,7 @@ export function createApi(baseUrl: string, getAccessToken: () => Promise<string 
     findings: () => request<Finding[]>('/api/findings'),
     finding: (findingId: string) => request<Finding>(`/api/findings/${id(findingId)}`),
     review: (findingId: string, input: Schemas['ReviewInput']) => request<Finding>(`/api/findings/${id(findingId)}/review`, input),
+    context: (findingId: string, input: { severity: Schemas['Finding']['severity']; business_impact: string }) => request<Finding>(`/api/findings/${id(findingId)}/context`, input),
     lifecycle: (findingId: string, input: Schemas['LifecycleInput']) => request<Finding>(`/api/findings/${id(findingId)}/lifecycle`, input),
     correlations: (analysisId: string) => request<Schemas['Correlation'][]>(`/api/correlations?analysis_id=${id(analysisId)}`),
     decide: (analysisId: string, pairId: string, input: Schemas['CorrelationDecision']) => request<Schemas['Correlation']>(`/api/correlations/${id(pairId)}/decision?analysis_id=${id(analysisId)}`, input),

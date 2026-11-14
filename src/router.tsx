@@ -1,20 +1,19 @@
 import { createBrowserRouter } from "react-router-dom";
 import { AppShell } from "./layout/AppShell";
-import { OverviewPage, IntakePage, MatrixPage, CorrelationPage, ReviewPage, PacketPage, ImpactPage } from "./pages/Pages";
 
 export const router = createBrowserRouter([
   {
     element: <AppShell />,
     children: [
-      { path: "/", element: <OverviewPage /> },
-      { path: "/intake", element: <IntakePage /> },
-      { path: "/matrix/:findingId", element: <MatrixPage /> },
-      { path: "/correlation", element: <CorrelationPage /> },
-      { path: "/review", element: <ReviewPage /> },
-      { path: "/review/:findingId", element: <ReviewPage /> },
-      { path: "/packet/:findingId", element: <PacketPage /> },
-      { path: "/impact", element: <ImpactPage /> },
-      { path: "*", element: <OverviewPage /> },
+      { path: "/", lazy: async () => ({ Component: (await import("./pages/Pages")).OverviewPage }) },
+      { path: "/intake", lazy: async () => ({ Component: (await import("./pages/Pages")).IntakePage }) },
+      { path: "/matrix/:findingId", lazy: async () => ({ Component: (await import("./pages/Pages")).MatrixPage }) },
+      { path: "/correlation", lazy: async () => ({ Component: (await import("./pages/Pages")).CorrelationPage }) },
+      { path: "/review", lazy: async () => ({ Component: (await import("./pages/Pages")).ReviewPage }) },
+      { path: "/review/:findingId", lazy: async () => ({ Component: (await import("./pages/Pages")).ReviewPage }) },
+      { path: "/packet/:findingId", lazy: async () => ({ Component: (await import("./pages/Pages")).PacketPage }) },
+      { path: "/impact", lazy: async () => ({ Component: (await import("./pages/Pages")).ImpactPage }) },
+      { path: "*", lazy: async () => ({ Component: (await import("./pages/Pages")).OverviewPage }) },
     ],
   },
 ]);

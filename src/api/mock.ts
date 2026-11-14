@@ -1,5 +1,5 @@
 import { demoFindings, demoCorrelationFinding, DEMO_REPOSITORY, DEMO_SHA, demoImpact } from "../data/demo";
-import type { CorrelationCandidate, Finding, ImpactPayload, ImpactResult, IntakePayload, IntakeResponse, LifecycleStatus, ReviewPayload } from "../types";
+import type { CorrelationCandidate, Finding, FindingContextPayload, ImpactPayload, ImpactResult, IntakePayload, IntakeResponse, LifecycleStatus, ReviewPayload } from "../types";
 
 const STORAGE_KEY = "vulnflow-demo-state";
 interface DemoState { findings: Finding[]; impact: ImpactResult; correlations: CorrelationCandidate[] }
@@ -105,6 +105,14 @@ export async function mockReview(findingId: string, payload: ReviewPayload): Pro
     decision: payload.decision,
     reviewerNotes: payload.notes
   };
+  saveState({ ...state, findings: state.findings.map((item) => item.id === findingId ? updated : item) });
+  return updated;
+}
+export async function mockFindingContext(findingId: string, payload: FindingContextPayload): Promise<Finding> {
+  const state = loadState();
+  const finding = state.findings.find((item) => item.id === findingId);
+  if (!finding) throw new Error("Finding not found");
+  const updated = { ...finding, severity: payload.severity, businessImpact: payload.businessImpact.trim() };
   saveState({ ...state, findings: state.findings.map((item) => item.id === findingId ? updated : item) });
   return updated;
 }

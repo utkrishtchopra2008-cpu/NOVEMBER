@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { ArrowUpRight, Bell, ChevronDown, ClipboardCheck, FileText, GitBranch, GitPullRequest, LayoutDashboard, LogOut, Network, ShieldCheck, ShieldEllipsis, UploadCloud } from "lucide-react";
-import { getFindings, isDemoMode } from "../api/client";
+import { getFindings, isDemoMode, isLocalMockMode } from "../api/client";
 import styles from "./AppShell.module.css";
 import { useAuth } from "../auth/AuthGate";
 import { useToast } from "../context/ToastContext";
@@ -45,7 +45,7 @@ export function AppShell() {
   return <div className={`${styles.root} app-shell`}>
     <div className="template-topline">
       <span>VULNFLOW / SECURITY INVESTIGATION WORKBENCH</span>
-      <span className={`environment-pill ${isDemoMode ? "demo" : "connected"}`}><i />{isDemoMode ? "LOCAL MOCK" : "API CONFIGURED"}</span>
+      <span className={`environment-pill ${isDemoMode ? "demo" : "connected"}`}><i />{isLocalMockMode ? "LOCAL MOCK" : isDemoMode ? "API DEMO" : "LIVE API"}</span>
     </div>
     <header className="brand-header">
       <NavLink className="brand-lockup" to="/" aria-label="VulnFlow workspace home">
