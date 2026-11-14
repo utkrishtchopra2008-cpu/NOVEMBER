@@ -175,6 +175,11 @@ code, pre, .mono { font-family: var(--vf-mono); }
 .upload-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
 .drop-hint { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 12px; color: #858d82; border: 1px dashed #c8c2b5; background: #f8f6f0; font-size: 9px; }
 .drop-hint svg { color: var(--vf-green-2); }
+.drop-hint strong, .drop-hint small { display: block; }
+.drop-hint strong { color: #536552; font-size: 10px; }
+.drop-hint small { margin-top: 3px; color: #899187; font-size: 8px; }
+.drop-hint { cursor: pointer; transition: background .15s, border-color .15s; }
+.drop-hint:hover, .drop-hint-active { background: #edf5ea; border-color: var(--vf-green-2); }
 .form-error, .field-error { color: #9d303e; font-size: 10px; }
 .form-error { margin: 0 0 12px 47px; padding: 9px 11px; background: #fff0f0; border-left: 3px solid var(--vf-red); }
 .intake-submit-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 15px; border-top: 1px solid var(--vf-line); }

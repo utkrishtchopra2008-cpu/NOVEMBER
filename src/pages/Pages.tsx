@@ -6,7 +6,7 @@ import { DEMO_SHA } from "../data/demo";
 import type { Finding, ImpactResult, ReviewDecision, ReviewPayload } from "../types";
 import { useToast } from "../context/ToastContext";
 import { IntakeForm } from "../components/IntakeForm";
-import { ClaimCard } from "../components/ClaimCard";
+import { ClaimMatrixCard } from "../components/ClaimMatrixCard";
 import { StatusBadge } from "../components/StatusBadge";
 import { CorrelationModal } from "../components/CorrelationModal";
 import { ImpactTree } from "../components/ImpactTree";
@@ -109,7 +109,7 @@ export function MatrixPage() {
     <div className="finding-context panel"><div className="finding-context-main"><div className="finding-title-line"><span className="finding-id">{finding.id}</span><StatusBadge value={finding.severity} /><StatusBadge value={finding.lifecycle} /></div><h2>{finding.title}</h2><p>{finding.repository}</p><div className="commit-context"><GitCommitHorizontal size={15} /><span>LOCKED COMMIT</span><code>{finding.commitSha}</code></div></div><div className="finding-context-side"><span className="micro-label">ORIGINAL REPORT</span><p>{finding.originalReport}</p><Link to={`/review/${finding.id}`} className="text-link">Review finding <ArrowUpRight size={14} /></Link></div></div>
     <div className="callout-banner"><ShieldCheck size={18} /><div><strong>Reference verification is not an exploitability verdict.</strong><span>These checks establish whether source references are consistent at this SHA. They do not prove that the described behavior is reachable or exploitable.</span></div></div>
     <div className="matrix-toolbar"><div><span className="eyebrow">ATOMIC CLAIMS</span><h2>{finding.claims.length} claims extracted</h2></div><div className="filter-tabs"><button className={filter === "ALL" ? "selected" : ""} onClick={() => setFilter("ALL")}>All <b>{finding.claims.length}</b></button><button className={filter === "VERIFIED_REFERENCE" ? "selected" : ""} onClick={() => setFilter("VERIFIED_REFERENCE")}>Verified</button><button className={filter === "INCONSISTENT_REFERENCE" ? "selected" : ""} onClick={() => setFilter("INCONSISTENT_REFERENCE")}>Inconsistent</button><button className={filter === "MANUAL_INVESTIGATION" ? "selected" : ""} onClick={() => setFilter("MANUAL_INVESTIGATION")}>Manual</button></div></div>
-    <div className="claim-list">{claims.map((claim) => <ClaimCard key={claim.id} claim={claim} onReview={() => window.location.assign(`/review/${finding.id}`)} />)}{!claims.length && <div className="empty-state">No claims match this verification filter.</div>}</div>
+    <div className="claim-list">{claims.map((claim) => <ClaimMatrixCard key={claim.id} claim={claim} onReview={() => window.location.assign(`/review/${finding.id}`)} />)}{!claims.length && <div className="empty-state">No claims match this verification filter.</div>}</div>
   </div>;
 }
 
