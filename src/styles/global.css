@@ -553,3 +553,28 @@ code, pre, .mono { font-family: var(--vf-mono); }
   .modal-actions { flex-direction: column; }
   .modal-actions .button { width: 100%; }
 }
+
+
+/* Backend-contract view additions */
+.progress-subtext { display: block; margin-top: 5px; color: #899187; font-size: 9px; }
+.progress-indeterminate { overflow: hidden; position: relative; }
+.progress-indeterminate span { position: absolute; left: -25%; width: 25%; animation: progress-sweep 1.5s ease-in-out infinite; }
+@keyframes progress-sweep { 0% { left: -25%; } 100% { left: 100%; } }
+.decision-state { color: #697368; font: 9px var(--vf-mono); letter-spacing: .04em; }
+.shared-function-list { display: flex; align-items: center; gap: 6px; margin-top: 8px !important; color: var(--vf-green) !important; font: 8px var(--vf-mono) !important; overflow-wrap: anywhere; }
+.impact-select { display: block; width: 100%; min-height: 37px; padding: 0 9px; color: var(--vf-ink); background: #fff; border: 1.5px solid var(--vf-line); font-size: 10px; }
+.impact-context-note { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; padding: 10px 13px; color: #677365; background: #fff; border: 1px solid var(--vf-line); font: 8px var(--vf-mono); }
+.impact-context-note code { color: var(--vf-green); font-size: 9px; }
+.impact-scope { margin-left: auto; padding: 5px 7px; color: #6e6b58; background: #f4f0e4; }
+.diff-explanation { grid-column: 1 / -1; padding: 12px; background: #f6f5ef; border: 1px solid var(--vf-line); }
+.diff-explanation strong { display: block; margin-top: 8px; font: 9px var(--vf-mono); }
+.diff-explanation p { margin: 6px 0; color: #6e786d; font-size: 9px; line-height: 1.5; }
+.diff-explanation pre { overflow: auto; margin: 0; padding: 9px; color: #405042; background: #eeefe8; font: 9px/1.6 var(--vf-mono); }
+.resolved-action { margin-top: 12px; }
+
+.line-change-marker { width: 15px; flex: 0 0 auto; color: #a0a69b; text-align: center; user-select: none; }
+.code-line-added { background: #e9f5e8; }
+.code-line-added .line-change-marker { color: #2d7b43; font-weight: 700; }
+.code-line-removed { background: #fceceb; }
+.code-line-removed .line-change-marker { color: #b83b4a; font-weight: 700; }
+.packet-reason { overflow-wrap: anywhere; }

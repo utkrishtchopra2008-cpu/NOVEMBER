@@ -16,7 +16,7 @@ export function ClaimCard({ claim, onReview }: { claim: Claim; onReview?: () => 
     <div className="claim-anchor">
       <span className="anchor-icon"><FileCode2 size={16} /></span>
       <div><strong>{claim.filePath}</strong><span>{claim.functionName} · lines {claim.lineStart}–{claim.lineEnd}</span></div>
-      <button className="text-link" onClick={onReview}>Inspect <ArrowUpRight size={14} /></button>
+      {claim.sourceUrl?.startsWith("https://github.com/") ? <a className="text-link" href={claim.sourceUrl} target="_blank" rel="noreferrer">Open pinned source <ArrowUpRight size={14} /></a> : <button className="text-link" onClick={onReview}>Inspect <ArrowUpRight size={14} /></button>}
     </div>
     <CodeSnippet lines={claim.snippet} startLine={claim.lineStart} compact />
     <div className="claim-reason"><Info size={15} /><span>{claim.reason}</span></div>
