@@ -248,7 +248,7 @@ export function ImpactPage() {
   const { findings } = useFindings();
   const analysisIds = useMemo(() => [...new Set(findings.map((finding) => finding.analysisId).filter(Boolean))], [findings]);
   const [analysisId, setAnalysisId] = useState("");
-  const [reference, setReference] = useState("HEAD");
+  const [reference, setReference] = useState(isDemoMode ? "DEMO" : "HEAD");
   const [result, setResult] = useState<ImpactResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -273,14 +273,14 @@ export function ImpactPage() {
     try {
       const next = await analyzeImpact(isPr ? { analysisId, pullRequestUrl: reference.trim() } : { analysisId, commitSha: reference.trim() });
       setResult(next);
-      notify("Impact analysis updated. Review retest and manual-mapping flags.");
+      notify(isDemoMode ? "Local preview only; no GitHub change was checked." : "Impact analysis updated. Review retest and manual-mapping flags.", isDemoMode ? "info" : "success");
     } catch (issue) { notify(issue instanceof Error ? issue.message : "Impact analysis failed.", "error"); }
     finally { setBusy(false); }
   }
   return <div className="page-stack">
     <PageHeading kicker="CONTINUOUS / PATCH INTELLIGENCE" title="Patch-to-finding impact" description="Compare a later PR or commit with historical evidence and identify claims that need retesting." />
     <form className="impact-input-panel panel" onSubmit={submit}>
-      <div className="impact-input-copy"><span className="eyebrow">CHANGESET TARGET</span><strong>Which revision changed?</strong><small>Use a PR URL or a branch, tag or commit ref (for example HEAD).</small></div>
+      <div className="impact-input-copy"><span className="eyebrow">CHANGESET TARGET</span><strong>Which revision changed?</strong><small>{isDemoMode ? "Use DEMO for the illustrative stored fixture. Other revisions are not checked offline." : "Use a PR URL or branch, tag or commit ref (for example HEAD)."}</small></div>
       <div className="impact-input-control">
         <label className="field-label" htmlFor="impact-analysis">Source analysis</label>
         <select id="impact-analysis" className="impact-select" value={analysisId} onChange={(event) => setAnalysisId(event.target.value)} disabled={!analysisIds.length}>

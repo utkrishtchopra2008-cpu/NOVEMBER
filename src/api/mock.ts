@@ -122,22 +122,22 @@ export async function mockLifecycle(findingId: string, lifecycle: LifecycleStatu
 export async function mockImpact(payload: ImpactPayload): Promise<ImpactResult> {
   await new Promise((resolve) => window.setTimeout(resolve, 650));
   const state = loadState();
-  if (payload.analysisId !== "AN-LOCAL-DEMO") {
-    const original = state.findings.find((finding) => finding.analysisId === payload.analysisId);
-    return {
-      ...demoImpact,
-      analysisId: payload.analysisId,
-      originalCommitSha: original?.commitSha || "NOT_VERIFIED",
-      currentCommitSha: payload.commitSha || "NOT_VERIFIED",
-      reference: "Unverified local input",
-      summary: "No source comparison was performed. Configure FastAPI for actual commit or PR impact analysis.",
-      changedFiles: [],
-      impacts: [],
-      warning: "Offline local mode cannot analyze changes to arbitrary repositories. No retest conclusion was produced."
-    };
+  // Only the explicitly requested fixed demo fixture produces a simulated diff.
+  if (payload.analysisId === "AN-LOCAL-DEMO" && payload.commitSha === "DEMO" && !payload.pullRequestUrl) {
+    return demoImpact;
   }
-  // Only the bundled fixed fixture contains an illustrative, prebuilt temporal diff.
-  return demoImpact;
+  const original = state.findings.find((finding) => finding.analysisId === payload.analysisId);
+  return {
+    ...demoImpact,
+    analysisId: payload.analysisId,
+    originalCommitSha: original?.commitSha || "NOT_VERIFIED",
+    currentCommitSha: "NOT_VERIFIED",
+    reference: payload.pullRequestUrl || payload.commitSha || "Unverified local input",
+    summary: "No source comparison was performed. Configure FastAPI for actual commit or PR impact analysis.",
+    changedFiles: [],
+    impacts: [],
+    warning: "Offline local mode cannot analyze arbitrary repositories or PRs. No retest conclusion was produced."
+  };
 }
 
 export async function mockCorrelationDecision(id: string, decision: "CONFIRMED_DUPLICATE" | "KEPT_SEPARATE") {

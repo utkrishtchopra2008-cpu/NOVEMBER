@@ -8,7 +8,7 @@ From repository root:
 python -m venv .venv
 .venv/bin/pip install -r backend/requirements.txt
 cd backend
-cp .env.example .env
+# The app defaults to local demo settings; create .env only to override them.
 ../.venv/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 

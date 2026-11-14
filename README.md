@@ -1,52 +1,62 @@
 # VulnFlow
 
-Evidence-first vulnerability validation and triage dashboard.
+Evidence-first vulnerability report triage. VulnFlow checks cited source references against a fixed commit, groups possible duplicate reports for human review, exports investigation packets, and highlights later changes for retesting. A reference match does **not** establish exploitability, and code changes do **not** establish remediation.
 
-## Run the frontend
+## Get started (backend demo + frontend)
 
-Requirements: Node.js 20 or newer.
+Requirements: Python 3.12+, Node.js 20+. From the repository root, use two terminals:
+
+**Terminal 1 — FastAPI**
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r backend/requirements.txt
+cd backend
+../.venv/bin/uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+The backend defaults to **demo mode** and does **not** require copying an `.env.example` file. Keep demo mode local; do not expose it on the public internet. API docs: http://localhost:8000/docs.
+
+**Terminal 2 — React**
 
 ```bash
 npm install
+printf 'VITE_API_BASE_URL=http://localhost:8000\n' > .env.local
 npm run dev
 ```
 
-### Local mock mode
+Open http://localhost:5173. The frontend fetches the structured demo fixture from `GET /api/demo` and submits it to `POST /api/intake`. The backend performs deterministic checks against its controlled fixture. Use this mode to demonstrate claim decomposition, the evidence matrix, correlation, review, packet export and impact analysis.
 
-Leave `VITE_API_BASE_URL` empty. The dashboard loads three bundled findings and keeps demo review decisions and impact results in browser local storage. Mock data is illustrative: it is not retrieved from GitHub and must not be represented as a real source verification.
+The backend contract, source checks, and configuration live in [backend/README.md](backend/README.md) and [API_CONTRACT.md](API_CONTRACT.md). Your teammate's current backend code is authoritative.
 
-### Backend demo mode
+## Frontend-only mock mode
 
-Follow [backend/README.md](backend/README.md) to start FastAPI in demo mode. Create `.env.local` with:
+Without `VITE_API_BASE_URL`, React uses **local mock mode** with illustrative bundled findings and local browser storage. This mode does not fetch GitHub, decompose arbitrary reports, or verify source references. It retains human review actions for demonstration. For the bundled original sample analysis, enter `DEMO` as the impact target to show a prebuilt temporal comparison. Any other ref/PR in offline mode returns an unverified result, not a fake retest verdict.
 
-```text
-VITE_API_BASE_URL=http://localhost:8000
-```
+**Never upload confidential reports in local mock mode:** report text is stored in your browser.
 
-The frontend checks API capabilities, fetches the backend's `GET /api/demo` fixture, then submits the exact returned report formats to `POST /api/intake`. Backend demo mode exercises the real deterministic reference checker against its controlled fixture repository.
+## Production integration
 
-### Live backend mode
+Set `VITE_API_BASE_URL` to a separately hosted FastAPI API. The FastAPI live mode requires Supabase Auth access tokens, a configured database and Prune/GitHub credentials server-side. The frontend's API boundary exposes `configureAccessTokenProvider()` but **does not currently implement Supabase sign-in**. Do not deploy live mode without a working authentication flow and server-side access-control verification.
 
-Set `VITE_API_BASE_URL` to the deployed FastAPI origin. Live backend endpoints require a Supabase access token. The API service exposes `configureAccessTokenProvider()` for a Supabase session integration, but this frontend build does not include a sign-in screen or Supabase client. Do not put a service-role key or other server secret in Vite environment variables. Until an authenticated token provider is wired, use backend demo mode for the end-to-end demonstration.
+Do not place Supabase secret/service-role keys, GitHub tokens, Prune credentials or Maritime tokens in any `VITE_*` variable. A browser-safe Supabase publishable key is not an API authorization token. Prune and Maritime are server-side integrations only.
 
-The frontend uses the generated schema/client in `shared/api-schema.d.ts` and `shared/client.ts`. See [API_CONTRACT.md](API_CONTRACT.md) for request and response details. Prune and Maritime are never called from the browser.
-
-## Build and deploy
+## Build
 
 ```bash
 npm run build
 npm run preview
 ```
 
-Firebase Hosting serves the Vite `dist` directory and rewrites SPA paths to `index.html`. Deploy FastAPI separately and set the production API origin in `VITE_API_BASE_URL`.
+The frontend is configured for Firebase Hosting (`dist` + SPA rewrites), but no Firebase project or public backend host is selected. Deployment therefore requires a project choice and origin/CORS configuration. GitHub Actions runs `npm run build` on frontend changes.
 
-## Functional boundaries
+## Product boundaries
 
-- Correlation decisions link reports but do not merge or delete findings.
-- Rejection is a reviewer disposition, not evidence that a vulnerability was resolved.
-- Impact analysis is scoped to files referenced by stored claims; it is not a full PR inventory or call graph.
-- A source reference match does not establish exploitability.
-- A changed file or function does not establish remediation.
-- Jira/GitHub issue creation is not wired; the UI prepares a draft and never claims a ticket was published.
+- Duplicate correlation is a suggestion; reviewers must confirm relationships and original reports remain separate.
+- Approval/rejection are explicit human decisions. Rejection never means the code was fixed.
+- Impact analysis covers **referenced files**, not the complete PR inventory or full call graph.
+- A source reference may be consistent while a vulnerability remains unproven.
+- A patch or change does not automatically resolve a finding.
+- GitHub/Jira issue publication is a **draft handoff**, not an automatic write.
 
-VulnFlow is an evidence and investigation workflow, not a SAST/DAST scanner or exploitability detector.
+See [PROJECT.md](PROJECT.md), [FEATURES.md](FEATURES.md), [SECURITY_GUIDE.md](SECURITY_GUIDE.md) and [INTEGRATIONS.md](INTEGRATIONS.md).
