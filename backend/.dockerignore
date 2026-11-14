@@ -1,0 +1,5 @@
+.env
+.venv
+*.db
+tests
+__pycache__

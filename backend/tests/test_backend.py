@@ -1,0 +1,140 @@
+import json
+import pytest
+from fastapi.testclient import TestClient
+from pydantic import ValidationError
+
+from app.config import Settings
+from app.demo import BASE, HEAD, SOURCES, sample
+from app.main import create_app
+from app.models import ClaimInput, Reference
+from app.source import verify, temporal
+from fastapi import HTTPException
+
+
+@pytest.fixture
+def client(tmp_path):
+    settings = Settings(_env_file=None, database_url=f'sqlite:///{tmp_path}/demo.db')
+    with TestClient(create_app(settings)) as test:
+        yield test
+
+
+def intake(client):
+    response = client.post('/api/intake', json=client.get('/api/demo').json())
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_complete_frontend_journey(client):
+    analysis = intake(client)
+    assert len(analysis['findings']) == 3
+    statuses = {c['verification_status'] for f in analysis['findings'] for c in f['claims']}
+    assert statuses == {'Verified reference', 'Inconsistent reference', 'Requires manual investigation'}
+    assert all(c['source_url'] is None for f in analysis['findings'] for c in f['claims'])
+    finding = analysis['findings'][0]
+    id = finding['id']
+    assert client.get('/api/findings').json()[0]['id'] == id
+    assert client.get('/api/findings/' + id).json()['commit_sha'] == BASE
+    response = client.post(f'/api/findings/{id}/review', json={'decision': 'APPROVED', 'notes': 'Reviewer reproduced against authorized fixture.'})
+    assert response.status_code == 200
+    assert response.json()['lifecycle'] == 'Validated'
+    assert len(response.json()['reviews']) == 1
+    pairs = client.get('/api/correlations', params={'analysis_id': analysis['id']}).json()
+    assert len(pairs) == 1
+    decision = client.post('/api/correlations/' + pairs[0]['id'] + '/decision', params={'analysis_id': analysis['id']}, json={'decision': 'KEPT_SEPARATE'})
+    assert decision.status_code == 200
+    packet = client.get(f'/api/findings/{id}/packet').json()
+    assert packet['related_reports'][0]['decision'] == 'KEPT_SEPARATE'
+    assert 'APPROVED' in packet['markdown']
+    download = client.get(f'/api/findings/{id}/packet.md')
+    assert download.status_code == 200 and 'attachment;' in download.headers['content-disposition']
+    impact = client.post('/api/impact-analysis', json={'analysis_id': analysis['id'], 'new_commit_sha': 'HEAD'})
+    assert impact.status_code == 200, impact.text
+    assert impact.json()['current_commit_sha'] == HEAD
+    assert impact.json()['changed_files'] == ['auth.py']
+    assert any(x['flag'] == 'RETEST_REQUIRED' for x in impact.json()['impacts'])
+    assert client.get('/api/findings/' + id).json()['lifecycle'] == 'Validated'
+    assert client.get(f'/api/findings/{id}/issue-draft').json()['published'] is False
+
+
+@pytest.mark.parametrize('change', [
+    {'repo_url': 'https://github.com.evil.com/x/y'},
+    {'repo_url': 'http://127.0.0.1/private'},
+    {'repo_url': 'https://github.com/x/y?token=secret'},
+    {'commit_sha': 'main'}, {'reports': []},
+    {'reports': [r.model_dump() for r in sample().reports] * 2},
+])
+def test_bad_intake(client, change):
+    data = sample().model_dump()
+    data.update(change)
+    response = client.post('/api/intake', json=data)
+    assert response.status_code == 422
+    assert 'error' in response.json()
+
+
+def test_no_live_claims_fabricated_in_demo(client):
+    data = sample().model_dump()
+    data['repo_url'] = 'https://github.com/some/real-repo'
+    assert client.post('/api/intake', json=data).status_code == 422
+
+
+def test_path_traversal_and_invalid_lines():
+    for path in ('../token', '/etc/passwd', 'src/../token', 'src\\token'):
+        with pytest.raises(ValidationError):
+            Reference(file_path=path)
+    with pytest.raises(ValidationError):
+        Reference(file_path='auth.py', start_line=5, end_line=2)
+
+
+def test_reference_verification_and_temporal_movement():
+    base = ClaimInput(original_excerpt='login exists', assertion='login exists', reference=Reference(file_path='auth.py', function_name='login'))
+    claim = verify(base, SOURCES['auth.py'], 'https://github.com/a/b', BASE)
+    assert claim.verification_status == 'Verified reference'
+    moved = '\n\n' + SOURCES['auth.py']
+    result = temporal(claim, SOURCES['auth.py'], moved, 'https://github.com/a/b', HEAD, 'finding')
+    assert result.flag == 'NO_REFERENCE_CHANGE'
+    assert result.current[0].number == 3
+    wrong = base.model_copy(update={'reference': Reference(file_path='auth.py', function_name='login', start_line=999)})
+    assert verify(wrong, SOURCES['auth.py'], 'https://github.com/a/b', BASE).verification_status == 'Inconsistent reference'
+    duplicate = SOURCES['auth.py'] + '\ndef login():\n    pass\n'
+    assert verify(base, duplicate, 'https://github.com/a/b', BASE).verification_status == 'Requires manual investigation'
+
+
+def test_ownership_and_stale_update(client):
+    data = intake(client)
+    store = client.app.state.store
+    assert store.all('another-user') == []
+    with pytest.raises(HTTPException) as exc:
+        store.finding('another-user', data['findings'][0]['id'])
+    assert exc.value.status_code == 404
+    a, version = store.get('local-demo', data['id'])
+    store.save('local-demo', a, version)
+    with pytest.raises(HTTPException) as exc:
+        store.save('local-demo', a, version)
+    assert exc.value.status_code == 409
+
+
+def test_limits_cors_and_review_validation(client):
+    response = client.post('/api/intake', content=b'x' * 350001)
+    assert response.status_code == 413
+    response = client.options('/api/intake', headers={'Origin': 'http://localhost:5173', 'Access-Control-Request-Method': 'POST'})
+    assert response.headers['access-control-allow-origin'] == 'http://localhost:5173'
+    response = client.options('/api/intake', headers={'Origin': 'https://evil.example', 'Access-Control-Request-Method': 'POST'})
+    assert response.status_code == 400
+    data = intake(client)
+    id = data['findings'][0]['id']
+    assert client.post(f'/api/findings/{id}/review', json={'decision': 'FIXED', 'notes': 'no'}).status_code == 422
+    assert client.post(f'/api/findings/{id}/lifecycle', json={'lifecycle': 'Resolved', 'notes': 'code changed'}).status_code == 409
+    assert client.post('/api/impact-analysis', json={'analysis_id': data['id'], 'new_commit_sha': HEAD, 'pr_number': 1}).status_code == 422
+
+
+def test_live_configuration_fails_closed():
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, mode='live')
+
+
+def test_persistence_after_restart(tmp_path):
+    settings = Settings(_env_file=None, database_url=f'sqlite:///{tmp_path}/persistent.db')
+    with TestClient(create_app(settings)) as client:
+        data = intake(client)
+    with TestClient(create_app(settings)) as client:
+        assert client.get('/api/findings/' + data['findings'][0]['id']).status_code == 200
