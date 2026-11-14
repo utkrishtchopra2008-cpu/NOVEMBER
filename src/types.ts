@@ -73,6 +73,7 @@ export interface IntakeResponse {
   correlations: CorrelationCandidate[];
 }
 export interface ReviewPayload { decision: ReviewDecision; notes: string }
+export interface FindingContextPayload { severity: Severity; businessImpact: string }
 
 export interface CorrelationCandidate {
   id: string;

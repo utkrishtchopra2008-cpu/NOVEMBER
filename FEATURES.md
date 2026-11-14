@@ -30,30 +30,30 @@ Compare reports using shared files, functions, and code paths. Show the overlap 
 
 Export the original report, claims, source references, commit SHA, verification results, related reports, missing evidence, suggested investigation steps, and reviewer decision as Markdown or JSON.
 
-### 5. Human review and lifecycle — MVP
-
-Allow a reviewer to approve, reject, or request more evidence. Track New → Investigating → Validated → Resolved, reviewer notes, and severity separately from business impact. A review decision is explicit and traceable.
-
-### 6. Patch-to-finding impact map — signature demo
+### 5. Patch-to-finding impact map — signature demo
 
 Compare a PR or later commit with stored findings. Show changed files/functions, matched findings, and which findings need retesting. A code change never marks a finding fixed automatically.
 
-### 7. Temporal evidence diff — follow-up
+### 6. Temporal evidence diff — signature demo
 
 Preserve evidence from the original commit and compare it with a later revision. Show which references still exist, changed, or need manual investigation, while retaining earlier evidence and decisions.
+
+### Supporting: human review and lifecycle — MVP
+
+Allow a reviewer to approve, reject, or request more evidence. Track New → Investigating → Validated → Resolved, reviewer notes, and severity separately from business impact. A review decision is explicit and traceable.
 
 ## Proposed architecture
 
 - **React:** intake, claims matrix, correlation, review, impact map, and exports.
 - **FastAPI:** API, report orchestration, LLM calls, deterministic source checks, correlation, packet generation, and PR impact analysis.
-- **Supabase:** intended platform; the exact division of database, authentication, storage, and API responsibilities remains to be confirmed.
-- **Firebase:** intended deployment platform; specify the frontend hosting target and FastAPI runtime before deployment configuration is added.
-- **Prune:** optional LLM gateway used by FastAPI for supported claim-extraction calls, cost controls, security checks, and receipts.
-- **Maritime:** optional isolated execution layer used by FastAPI for repository tests or generated verification jobs that should not run in the API process.
+- **Supabase:** Postgres stores owner-scoped analysis records; Supabase Auth supplies reviewer sessions. FastAPI validates access tokens and uses a server-side database connection. Browser Data API access to the analysis table is revoked.
+- **Firebase:** Hosting serves the React SPA with history-route rewrites and security headers. A Firebase project and public domain still need to be selected.
+- **Prune:** FastAPI calls the OpenAI-compatible Chat Completions endpoint for structured claim extraction. The provider key stays server-side; receipts are stored with analysis metadata. No direct-provider fallback is enabled.
+- **Maritime:** optional, isolated Python syntax check for a verified `.py` reference at its original SHA. It does not run repository tests or generated commands.
 - **GitHub API:** read repository trees/files and commit/PR diffs at explicit refs.
-- **Storage:** keep each analysis tied to repository, commit SHA, source evidence, reports, claims, relationships, review history, and integration metadata.
+- **Storage:** Supabase persists each analysis as an owner-scoped JSON aggregate, including repository, commit SHA, source evidence, reports, claims, relationships, review history, and impact history. Local demo mode uses SQLite and is not a live fallback.
 
-Keep verification deterministic and separate from LLM output. Treat the LLM as an extractor, not as the authority on source truth or exploitability.
+Keep verification deterministic and separate from LLM output. Treat the LLM as an extractor, not as the authority on source truth or exploitability. Production deployment is not complete until a FastAPI host, Firebase project/domain, matching Supabase project, exact CORS origins, and runtime secrets are configured and exercised.
 
 ## Demo
 

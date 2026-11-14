@@ -9,7 +9,7 @@ This document defines the integration boundaries for Prune and Maritime. Both cr
 | FastAPI | Owns API routes, orchestration, authorization, GitHub access, deterministic checks, and exports |
 | Supabase | Stores analyses, reports, claims, evidence, relationships, reviews, and integration metadata |
 | Prune | Proxies FastAPI's supported LLM calls and returns optimization, security, cost, and receipt metadata |
-| Maritime | Optionally runs isolated verification jobs that may execute repository tests or generated checks |
+| Maritime | Optionally runs a fixed Python syntax check in an isolated sandbox |
 | Firebase Hosting | Serves the React single-page frontend |
 
 The browser must never call Prune or Maritime directly. Their credentials remain server-side.
@@ -17,13 +17,11 @@ The browser must never call Prune or Maritime directly. Their credentials remain
 ## Request flow
 
 1. React submits an analysis to FastAPI.
-2. FastAPI validates the repository URL, commit SHA, report size, and authenticated user.
-3. FastAPI fetches source content from GitHub at the requested immutable SHA.
-4. FastAPI sends report text and selected source context to Prune for structured claim extraction.
-5. FastAPI stores claims and Prune metadata in Supabase.
-6. Deterministic verification runs inside FastAPI for file, line, and supported function references.
-7. A reviewer may request a syntax-only recheck for a verified Python reference; FastAPI sends that one pinned source file to a disposable Maritime sandbox with internet disabled.
-8. FastAPI stores the result, shows the evidence matrix, and creates the investigation packet.
+2. FastAPI validates the repository URL, commit SHA, report size, and authenticated user, then resolves the exact commit.
+3. FastAPI sends report text to Prune for structured claim extraction; it does not ask Prune to verify source references.
+4. FastAPI fetches each referenced file at the resolved SHA, deterministically verifies supported file, line, and function references, then stores the completed analysis and allowlisted Prune metadata in Supabase.
+5. The API returns the evidence matrix and exposes the investigation packet.
+6. A reviewer may request a syntax-only recheck for a verified Python reference; FastAPI sends that pinned source file to a disposable Maritime sandbox with internet disabled, stores the bounded result, and requests sandbox deletion.
 
 A reference match does not prove exploitability. A changed file does not prove remediation.
 
@@ -31,30 +29,18 @@ A reference match does not prove exploitability. A changed file does not prove r
 
 ### Client
 
-Create the LLM client only in FastAPI:
-
-```python
-from openai import OpenAI
-import os
-
-client = OpenAI(
-    base_url="https://api.withprune.com/v1",
-    api_key=os.environ["PRUNE_API_KEY"],
-)
-```
-
-Keep existing prompts, model names, and call sites stable while changing only client configuration. Use supported Chat Completions or structured outputs for claim extraction. Do not use the OpenAI Responses API through Prune until support is confirmed.
+The FastAPI extractor uses `httpx` to call `POST https://api.withprune.com/v1/chat/completions` with `PRUNE_API_KEY` from server configuration. The browser never contacts Prune. Prune's OpenAI-compatible Chat Completions endpoint accepts the current structured JSON request; VulnFlow does not use the Responses API.
 
 ### Request metadata
 
-When the concepts exist in the application, send:
+The current extractor sends:
 
-- `X-Prune-Customer-Id`: authenticated VulnFlow user or team
-- `X-Prune-Feature-Id`: `claim_extraction`, `correlation`, or another stable feature name
-- `X-Prune-Run-Id`: one analysis run identifier across related calls
-- `X-Prune-Run-Budget-Usd`: optional per-run budget
+- `X-Prune-Customer-Id`: authenticated VulnFlow user
+- `X-Prune-Feature-Id`: `claim_extraction`
+- `X-Prune-Run-Id`: analysis ID shared across report calls in that analysis
+- `X-Prune-Cache`: `exact`
 
-Use exact caching only when the request identity includes the repository, commit SHA, report hash, prompt version, and model. Disable semantic caching for sensitive source analysis unless the privacy decision is explicit.
+The request body includes repository, commit SHA, report hash, and prompt version alongside the report. Exact cache mode is explicitly selected; semantic caching is not used.
 
 ### Persisted metadata
 
@@ -63,11 +49,9 @@ Store only the metadata needed for audit and cost visibility:
 - analysis ID and report hash
 - requested and returned model
 - cache status
-- token counts and estimated cost
-- optimization flags
-- shield decision or rejection code
-- receipt signature and verification status
-- provider request identifier, when available
+- tokens saved and estimated cost saved, when returned
+- allowlisted cache, token-saved, cost-saved, and routed-model metadata
+- receipt signature fields when present; receipt signature verification is not implemented and is recorded as unverified
 
 Do not store provider keys, full prompts, or sensitive source excerpts in logs.
 
@@ -75,10 +59,9 @@ Do not store provider keys, full prompts, or sensitive source excerpts in logs.
 
 Handle Prune rate limits, spend caps, shield rejections, timeouts, and outages explicitly. A direct-provider fallback, if enabled later, must be behind a feature flag and must preserve the same claim schema and audit fields.
 
-Prune documentation: https://www.withprune.com/docs  
-How it works: https://www.withprune.com/docs/how-it-works  
-Receipts: https://www.withprune.com/docs/receipts  
-Security model: https://www.withprune.com/docs/security
+Prune documentation: https://www.withprune.com/docs
+How it works: https://www.withprune.com/docs/how-it-works
+Error codes: https://www.withprune.com/docs/errors
 
 ## Maritime integration
 
@@ -116,10 +99,8 @@ Persist:
 
 Do not persist Maritime keys or raw logs containing secrets.
 
-Maritime documentation: https://maritime.sh/index.md  
-Setup procedure: https://maritime.sh/agents.md  
-REST API: https://maritime.sh/docs/api.md  
-Documentation index: https://maritime.sh/llms.txt
+Maritime sandbox docs: https://maritime.sh/docs/ephemeral-sandboxes
+REST API: https://maritime.sh/docs/api
 
 ## Environment variables
 

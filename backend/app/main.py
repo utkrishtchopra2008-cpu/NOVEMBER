@@ -19,7 +19,7 @@ from .demo import DemoSource, sample
 from .extraction import extract
 from .maritime import Maritime
 from .models import (Analysis, ClaimInput, Correlation, CorrelationDecision, Finding,
-    ImpactHistoryEntry, ImpactInput, ImpactResult, Intake, LifecycleInput, MaritimeJob, MaritimeJobInput,
+    FindingContextInput, ImpactHistoryEntry, ImpactInput, ImpactResult, Intake, LifecycleInput, MaritimeJob, MaritimeJobInput,
     Packet, Review, ReviewInput, now)
 from .source import GitHub, temporal, verify
 from .store import Store
@@ -205,6 +205,17 @@ def create_app(settings=None, source=None):
         analysis, version, finding = app.state.store.finding(user, id)
         finding.reviews.append(Review(**body.model_dump(), reviewer_id=user))
         finding.lifecycle = 'Validated' if body.decision == 'APPROVED' else 'Investigating'
+        app.state.store.save(user, analysis, version)
+        return finding
+
+    @app.post('/api/findings/{id}/context', response_model=Finding)
+    def finding_context(id: str, body: FindingContextInput, user=Depends(owner)):
+        analysis, version, finding = app.state.store.finding(user, id)
+        finding.severity, finding.business_impact = body.severity, body.business_impact
+        finding.extraction_metadata.setdefault('context_history', []).append({
+            'severity': body.severity, 'business_impact': body.business_impact,
+            'reviewer_id': user, 'created_at': now(),
+        })
         app.state.store.save(user, analysis, version)
         return finding
 

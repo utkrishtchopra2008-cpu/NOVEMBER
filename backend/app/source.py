@@ -74,8 +74,8 @@ def verify(claim, text, repo, sha):
         else:
             lines = text.splitlines()
             start, end = ref.start_line or 1, ref.end_line or ref.start_line or min(len(lines), 15)
-            status, reason = VERIFIED, 'Referenced file and supplied line range exist at this commit.'
-            if start > len(lines) or end > len(lines):
+            status, reason = VERIFIED, 'Referenced file and supplied line range exist at this commit.' if ref.start_line is not None or ref.end_line is not None else 'Referenced file exists at this commit.'
+            if (ref.start_line is not None or ref.end_line is not None) and (start > len(lines) or end > len(lines)):
                 status, reason = INCONSISTENT, 'Referenced line range is outside this file.'
             if ref.function_name and status == VERIFIED:
                 if not ref.file_path.endswith('.py'):
@@ -98,8 +98,10 @@ def verify(claim, text, repo, sha):
                     except (SyntaxError, RecursionError):
                         status, reason = MANUAL, 'Python source could not be parsed; manual inspection required.'
             if status != INCONSISTENT:
-                snippet = [CodeLine(number=i + 1, text=line) for i, line in enumerate(lines) if start <= i + 1 <= min(end, start + 79)]
-                source_url += f'#L{start}-L{min(end, start + 79)}'
+                if end >= start:
+                    snippet = [CodeLine(number=i + 1, text=line) for i, line in enumerate(lines) if start <= i + 1 <= min(end, start + 79)]
+                if snippet:
+                    source_url += f'#L{start}-L{min(end, start + 79)}'
     return Claim(**claim.model_dump(), verification_status=status, verification_reason=reason, snippet=snippet, source_url=source_url)
 
 

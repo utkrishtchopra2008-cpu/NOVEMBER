@@ -32,8 +32,8 @@ Finding lifecycle (New → Investigating → Validated → Resolved), severity s
 ## Proposed MVP architecture
 
 - **Frontend:** React dashboard deployed as a static single-page app on Firebase Hosting.
-- **API/backend:** Python + FastAPI for intake, LLM/GitHub orchestration, deterministic checks, correlation, review actions, and packet generation.
-- **Data platform:** Supabase is part of the planned backend. The exact split between FastAPI, Supabase Postgres, and any Supabase Auth/Storage/Edge Functions must be confirmed before implementation.
+- **API/backend:** Python + FastAPI owns the REST API, Supabase Auth token validation, GitHub/Prune/Maritime orchestration, deterministic checks, correlation, review actions, impact analysis, and packet generation.
+- **Data platform:** Supabase Postgres stores owner-scoped analysis aggregates. FastAPI connects with a server-side database credential; browser access to the table is revoked and RLS is enabled. Supabase Auth issues reviewer sessions; FastAPI validates each access token and applies owner filters.
 - **GitHub client:** read repository content and PR/commit diffs by immutable SHA; keep credentials server-side.
 - **Claim extraction:** LLM returns schema-validated structured claims and explicit assumptions.
 - **Verification:** deterministic checks against fetched source; never let the LLM determine whether a reference exists.
@@ -41,7 +41,7 @@ Finding lifecycle (New → Investigating → Validated → Resolved), severity s
 - **Export:** generate Markdown/JSON from stored evidence and decisions.
 - **Optional integrations:** Prune can proxy FastAPI's LLM calls; Maritime can run isolated verification jobs when execution is needed. See [INTEGRATIONS.md](INTEGRATIONS.md).
 
-FastAPI's deployment runtime is not selected. Firebase Hosting serves the React app; route API requests to a separate FastAPI host only after that host is chosen. Keep one deployable API application for the hackathon.
+Firebase Hosting serves the React app. FastAPI is containerized for a separate Python host, but no provider, project, or public API origin is selected yet. Set `VITE_API_BASE_URL` and exact CORS origins when that host is chosen. Keep one deployable API application for the hackathon.
 
 ## Demo path
 
