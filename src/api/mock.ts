@@ -1,11 +1,11 @@
-import { demoFindings, DEMO_REPOSITORY, DEMO_SHA, demoImpact } from "../data/demo";
+import { demoFindings, demoCorrelationFinding, DEMO_REPOSITORY, DEMO_SHA, demoImpact } from "../data/demo";
 import type { CorrelationCandidate, Finding, ImpactPayload, ImpactResult, IntakePayload, IntakeResponse, LifecycleStatus, ReviewPayload } from "../types";
 
 const STORAGE_KEY = "vulnflow-demo-state";
 interface DemoState { findings: Finding[]; impact: ImpactResult; correlations: CorrelationCandidate[] }
 function initialState(): DemoState {
   return {
-    findings: demoFindings,
+    findings: [...demoFindings, demoCorrelationFinding],
     impact: demoImpact,
     correlations: [{
       id: "COR-LOCAL-01",
@@ -27,7 +27,19 @@ function loadState(): DemoState {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       const parsed = JSON.parse(stored) as Partial<DemoState>;
-      if (parsed.findings && parsed.impact && parsed.correlations) return parsed as DemoState;
+      if (parsed.findings && parsed.impact && parsed.correlations) {
+        const state = parsed as DemoState;
+        // Migrate older demo sessions without erasing user-entered findings or review decisions.
+        const needsCorrelationFixture = state.correlations.some((pair) =>
+          pair.findingIds.includes(demoCorrelationFinding.id)
+        ) && !state.findings.some((finding) => finding.id === demoCorrelationFinding.id);
+        if (needsCorrelationFixture) {
+          const migrated = { ...state, findings: [...state.findings, demoCorrelationFinding] };
+          saveState(migrated);
+          return migrated;
+        }
+        return state;
+      }
     }
   } catch { /* Reset malformed or unavailable local data to bundled fixtures. */ }
   return initialState();

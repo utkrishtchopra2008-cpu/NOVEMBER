@@ -85,5 +85,23 @@ export const demoImpact: ImpactResult = {
     ],
     diff: "- old query call\n+ normalized lookup",
     currentVerificationStatus: "Verified reference"
+  }, {
+    findingId: "VF-1042",
+    claimId: "CL-1042-B",
+    filePath: "auth.py",
+    flag: "MANUAL_MAPPING_REQUIRED",
+    reason: "The later revision alters the lookup input path, but the report does not establish whether that change affects the claimed security behavior. Manual reassessment is required.",
+    original: [
+      { number: 88, text: "def lookup_user(username: str):", kind: "context" },
+      { number: 89, text: "    query = \"SELECT id, role FROM users WHERE username = %s\"", kind: "context" },
+      { number: 90, text: "    cursor.execute(query, (username,))", kind: "removed" }
+    ],
+    current: [
+      { number: 88, text: "def lookup_user(username: str):", kind: "context" },
+      { number: 89, text: "    normalized = username.strip()", kind: "added" },
+      { number: 90, text: "    cursor.execute(query, (normalized,))", kind: "added" }
+    ],
+    diff: "- cursor.execute(query, (username,))\n+ normalized = username.strip()\n+ cursor.execute(query, (normalized,))",
+    currentVerificationStatus: "Requires manual investigation"
   }]
 };

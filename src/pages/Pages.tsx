@@ -253,7 +253,13 @@ export function ImpactPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [diffMode, setDiffMode] = useState<"split" | "timeline">("split");
+  const [selectedImpactKey, setSelectedImpactKey] = useState("");
   const { notify } = useToast();
+  const selectedImpact = result?.impacts.find((item) => `${item.findingId}:${item.claimId}` === selectedImpactKey) || result?.impacts[0];
+  useEffect(() => {
+    setSelectedImpactKey("");
+    setResult(null);
+  }, [analysisId]);
   useEffect(() => {
     if (!analysisId && analysisIds.length) setAnalysisId(analysisIds[0]);
   }, [analysisIds, analysisId]);
@@ -291,13 +297,27 @@ export function ImpactPage() {
       <div className="impact-summary-grid"><StatCard label="Referenced files changed" value={String(result.changedFiles.length).padStart(2, "0")} caption="Not a complete PR file inventory" icon={FileCode2} /><StatCard label="Linked findings" value={String(new Set(result.changedFiles.flatMap((file) => file.linkedFindingIds)).size).padStart(2, "0")} caption="Historical evidence overlaps" icon={ShieldCheck} /><StatCard label="Retest required" value={String(result.impacts.filter((item) => item.flag === "RETEST_REQUIRED").length).padStart(2, "0")} caption="Per-claim retest flags" icon={GitPullRequest} tone="amber" /></div>
       <section className="panel impact-graph-panel"><div className="panel-heading"><div><span className="eyebrow">CHANGE BLAST RADIUS</span><h2>Impact map</h2></div><span className="impact-legend"><i /> Retest / manual mapping</span></div><ImpactTree result={result} findings={findings} /></section>
       <section className="panel temporal-panel"><div className="panel-heading"><div><span className="eyebrow">FEATURE 06 / HISTORICAL EVIDENCE</span><h2>Temporal evidence diff</h2></div><div className="filter-tabs"><button className={diffMode === "split" ? "selected" : ""} onClick={() => setDiffMode("split")}>Side by side</button><button className={diffMode === "timeline" ? "selected" : ""} onClick={() => setDiffMode("timeline")}>Timeline</button></div></div>
-        {diffMode === "split" ? result.impacts.length ? <div className="diff-grid">
-          <div className="diff-column"><div className="diff-column-head"><span>ORIGINAL EVIDENCE</span><code>{result.originalCommitSha.slice(0, 12)}</code></div><CodeSnippet startLine={result.impacts[0].original[0]?.number || 1} lines={result.impacts[0].original} /></div>
-          <div className="diff-column"><div className="diff-column-head"><span>CURRENT EVIDENCE</span><code>{result.currentCommitSha.slice(0, 12)}</code></div><CodeSnippet startLine={result.impacts[0].current[0]?.number || 1} lines={result.impacts[0].current} /></div>
-          <div className="diff-explanation"><StatusBadge value={result.impacts[0].flag === "RETEST_REQUIRED" ? "RETEST_REQUIRED" : result.impacts[0].flag === "MANUAL_MAPPING_REQUIRED" ? "MANUAL_INVESTIGATION" : "SEPARATE"} /><strong>{result.impacts[0].filePath || "Unmapped source"} · {result.impacts[0].claimId}</strong><p>{result.impacts[0].reason}</p><pre>{result.impacts[0].diff || "No textual diff returned."}</pre></div>
-        </div> : <div className="empty-state">The backend did not return claim-level impacts for this revision.</div> : <div className="temporal-timeline">
+        {result.impacts.length > 0 && <div className="impact-claim-picker">
+          <label className="field-label" htmlFor="impact-claim">Affected claim ({result.impacts.length} total)</label>
+          <select
+            id="impact-claim"
+            className="impact-select"
+            value={selectedImpact ? `${selectedImpact.findingId}:${selectedImpact.claimId}` : ""}
+            onChange={(event) => setSelectedImpactKey(event.target.value)}
+          >
+            {result.impacts.map((item) => <option
+              key={`${item.findingId}:${item.claimId}`}
+              value={`${item.findingId}:${item.claimId}`}
+            >{`${item.findingId} · ${item.claimId} · ${item.filePath || "Unmapped"} · ${item.flag.replaceAll("_", " ")}`}</option>)}
+          </select>
+        </div>}
+        {diffMode === "split" ? selectedImpact ? <div className="diff-grid">
+          <div className="diff-column"><div className="diff-column-head"><span>ORIGINAL EVIDENCE</span><code>{result.originalCommitSha.slice(0, 12)}</code></div><CodeSnippet lines={selectedImpact.original} /></div>
+          <div className="diff-column"><div className="diff-column-head"><span>CURRENT EVIDENCE</span><code>{result.currentCommitSha.slice(0, 12)}</code></div><CodeSnippet lines={selectedImpact.current} /></div>
+          <div className="diff-explanation"><StatusBadge value={selectedImpact.flag === "RETEST_REQUIRED" ? "RETEST_REQUIRED" : selectedImpact.flag === "MANUAL_MAPPING_REQUIRED" ? "MANUAL_INVESTIGATION" : "SEPARATE"} /><strong>{selectedImpact.filePath || "Unmapped source"} · {selectedImpact.claimId}</strong><p>{selectedImpact.reason}</p><pre>{selectedImpact.diff || "No textual diff returned."}</pre></div>
+        </div> : <div className="empty-state">No claim-level impacts were returned for this revision.</div> : <div className="temporal-timeline">
           <div className="timeline-item"><span className="timeline-dot done" /><div><strong>Original evidence preserved</strong><small>{result.originalCommitSha} · Claims remain anchored to this revision</small></div></div>
-          {result.impacts.map((impact) => <div className="timeline-item" key={impact.claimId}><span className={`timeline-dot ${impact.flag === "RETEST_REQUIRED" ? "warning" : "done"}`} /><div><strong>{impact.filePath || "Unmapped reference"} · {impact.claimId}</strong><small>{impact.reason}</small></div><StatusBadge value={impact.flag === "RETEST_REQUIRED" ? "RETEST_REQUIRED" : impact.flag === "MANUAL_MAPPING_REQUIRED" ? "MANUAL_INVESTIGATION" : "SEPARATE"} compact /></div>)}
+          {result.impacts.map((impact) => <div className="timeline-item" key={`${impact.findingId}:${impact.claimId}`}><span className={`timeline-dot ${impact.flag === "RETEST_REQUIRED" ? "warning" : "done"}`} /><div><strong>{impact.filePath || "Unmapped reference"} · {impact.claimId}</strong><small>{impact.reason}</small></div><StatusBadge value={impact.flag === "RETEST_REQUIRED" ? "RETEST_REQUIRED" : impact.flag === "MANUAL_MAPPING_REQUIRED" ? "MANUAL_INVESTIGATION" : "SEPARATE"} compact /></div>)}
           <div className="timeline-item"><span className="timeline-dot" /><div><strong>Reviewer reassessment</strong><small>Historical review decisions remain unchanged until a reviewer acts.</small></div><span className="pending-decision">PENDING</span></div>
         </div>}
       </section>

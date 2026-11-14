@@ -578,3 +578,8 @@ code, pre, .mono { font-family: var(--vf-mono); }
 .code-line-removed { background: #fceceb; }
 .code-line-removed .line-change-marker { color: #b83b4a; font-weight: 700; }
 .packet-reason { overflow-wrap: anywhere; }
+
+/* Claim-specific temporal evidence navigation */
+.impact-claim-picker { max-width: 100%; margin: 0 0 14px; padding: 12px; background: #f8f6ef; border: 1px solid var(--vf-line); }
+.impact-claim-picker .field-label { margin: 0 0 8px; }
+.impact-claim-picker select { width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--vf-mono); }
