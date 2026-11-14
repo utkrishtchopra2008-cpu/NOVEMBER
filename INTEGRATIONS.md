@@ -132,7 +132,7 @@ SUPABASE_SECRET_KEY=
 GITHUB_TOKEN=
 ```
 
-Only the FastAPI runtime may read secret keys. Add names, not values, to `.env.example`; keep real environment files in `.gitignore`.
+Only the FastAPI runtime may read secret keys. Keep real values in the ignored `backend/.env` file or deployment secrets, never in the repository.
 
 ## Acceptance checks
 
