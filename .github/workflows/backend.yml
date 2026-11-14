@@ -1,0 +1,25 @@
+name: Backend contract
+on:
+  pull_request:
+    paths: ['backend/**', 'shared/**', 'pytest.ini', '.github/workflows/backend.yml']
+  push:
+    paths: ['backend/**', 'shared/**', 'pytest.ini', '.github/workflows/backend.yml']
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: pip install -r backend/requirements.txt
+      - run: python -m pytest -q
+      - run: python backend/export_contract.py
+      - run: npx --yes openapi-typescript@7.10.1 shared/openapi.json -o shared/api-schema.d.ts
+      - run: git diff --exit-code -- shared/openapi.json shared/api-schema.d.ts shared/demo-intake.json
+      - run: npx --yes -p typescript@5.9.3 tsc --noEmit --strict --lib es2022,dom --moduleResolution bundler --module esnext shared/client.ts

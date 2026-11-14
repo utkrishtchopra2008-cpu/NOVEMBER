@@ -1,0 +1,21 @@
+{
+  "repo_url": "https://github.com/vulnflow-demo/auth-service",
+  "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "reports": [
+    {
+      "title": "SQL injection in auth.py",
+      "content": "{\"claims\": [{\"original_excerpt\": \"User input is concatenated into a query.\", \"assertion\": \"User input is concatenated into a query.\", \"component\": \"auth.py\", \"reference\": {\"file_path\": \"auth.py\", \"function_name\": \"login\", \"start_line\": null, \"end_line\": null}, \"assumptions\": []}, {\"original_excerpt\": \"sanitize_input is missing.\", \"assertion\": \"Report references sanitize_input.\", \"component\": \"Unspecified\", \"reference\": {\"file_path\": \"auth.py\", \"function_name\": \"sanitize_input\", \"start_line\": null, \"end_line\": null}, \"assumptions\": []}]}",
+      "format": "json"
+    },
+    {
+      "title": "Missing authorization in admin.py",
+      "content": "{\"claims\": [{\"original_excerpt\": \"Deleting users may lack an authorization check.\", \"assertion\": \"Deleting users may lack an authorization check.\", \"component\": \"admin.py\", \"reference\": {\"file_path\": \"admin.py\", \"function_name\": \"delete_user\", \"start_line\": null, \"end_line\": null}, \"assumptions\": []}, {\"original_excerpt\": \"Authentication may rely on login.\", \"assertion\": \"The authentication path references login.\", \"component\": \"Unspecified\", \"reference\": {\"file_path\": \"auth.py\", \"function_name\": \"login\", \"start_line\": null, \"end_line\": null}, \"assumptions\": []}]}",
+      "format": "json"
+    },
+    {
+      "title": "Insecure deserialization in worker.py",
+      "content": "{\"claims\": [{\"original_excerpt\": \"A payload reaches pickle.loads.\", \"assertion\": \"A payload reaches pickle.loads.\", \"component\": \"worker.py\", \"reference\": {\"file_path\": \"worker.py\", \"function_name\": \"process_job\", \"start_line\": null, \"end_line\": null}, \"assumptions\": []}, {\"original_excerpt\": \"External users can reach this queue.\", \"assertion\": \"External users can reach this queue.\", \"component\": \"Unspecified\", \"reference\": {\"file_path\": null, \"function_name\": null, \"start_line\": null, \"end_line\": null}, \"assumptions\": [\"Queue permissions are unknown.\"]}]}",
+      "format": "json"
+    }
+  ]
+}
