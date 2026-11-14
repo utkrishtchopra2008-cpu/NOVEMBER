@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent, type ChangeEvent } from "react";
+import { useRef, useState, type FormEvent, type ChangeEvent, type DragEvent } from "react";
 import { UploadCloud, Github, FileText, X, Plus, ArrowRight, LoaderCircle, CheckCircle2, GitCommitHorizontal, Sparkles } from "lucide-react";
 import { demoFindings } from "../data/demo";
 import { demoDefaults } from "../api/mock";
@@ -12,6 +12,7 @@ export function IntakeForm({ onSubmit, busy }: Props) {
   const [commitSha, setCommitSha] = useState(demoDefaults.commitSha);
   const [reports, setReports] = useState<IntakeReport[]>(demoReports);
   const [error, setError] = useState("");
+  const [dragging, setDragging] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const shaValid = /^[a-f0-9]{40}$/i.test(commitSha);
   const repoValid = /^https:\/\/github\.com\/[\w.-]+\/[\w.-]+\/?$/.test(repositoryUrl.trim());
@@ -22,14 +23,22 @@ export function IntakeForm({ onSubmit, busy }: Props) {
   function removeReport(index: number) {
     setReports((current) => current.filter((_, i) => i !== index));
   }
-  async function readFiles(event: ChangeEvent<HTMLInputElement>) {
-    const selected = Array.from(event.target.files || []);
-    const accepted = selected.filter((file) => /\.(md|txt|json)$/i.test(file.name)).slice(0, 3 - reports.length);
+  async function addFiles(selected: File[]) {
+    const remaining = Math.max(0, 3 - reports.length);
+    const accepted = selected.filter((file) => /\.(md|txt|json)$/i.test(file.name)).slice(0, remaining);
     const parsed = await Promise.all(accepted.map(async (file) => ({ name: file.name, content: await file.text() })));
     setReports((current) => [...current, ...parsed].slice(0, 3));
     if (selected.length > accepted.length) setError("Only .md, .txt and .json files are accepted; up to three reports are allowed.");
     else setError("");
+  }
+  async function readFiles(event: ChangeEvent<HTMLInputElement>) {
+    await addFiles(Array.from(event.target.files || []));
     event.target.value = "";
+  }
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    setDragging(false);
+    void addFiles(Array.from(event.dataTransfer.files));
   }
   function loadSamples() {
     setRepositoryUrl(demoDefaults.repository);
@@ -73,7 +82,9 @@ export function IntakeForm({ onSubmit, busy }: Props) {
           <button type="button" className="button button-ghost sample-button" onClick={loadSamples}><Sparkles size={15} /> Load demo set</button>
           <input ref={fileRef} type="file" accept=".md,.txt,.json" multiple hidden onChange={readFiles} />
         </div>
-        <div className="drop-hint"><UploadCloud size={17} /><span>Drop .md, .txt or .json files here, or use Upload reports. 3-file limit.</span></div>
+        <div className={`drop-hint ${dragging ? "drop-hint-active" : ""}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={handleDrop} onClick={() => fileRef.current?.click()} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") fileRef.current?.click(); }}>
+          <UploadCloud size={19} /><span><strong>{dragging ? "Release to add reports" : "Drop reports here"}</strong><small> .md, .txt or .json · Maximum 3 files · Or click to browse</small></span>
+        </div>
       </div>
     </div>
     {error && <div className="form-error" role="alert">{error}</div>}

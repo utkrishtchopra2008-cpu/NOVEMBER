@@ -47,7 +47,8 @@ export async function mockIntake(payload: IntakePayload): Promise<IntakeResponse
 export async function mockReview(findingId: string, payload: ReviewPayload): Promise<Finding> {
   const state = loadState();
   const finding = state.findings.find((item) => item.id === findingId) || demoFindings[0];
-  const lifecycle = payload.decision === "APPROVED" ? "VALIDATED" : payload.decision === "REJECTED" ? "RESOLVED" : "INVESTIGATING";
+  // A rejected report is not a resolved vulnerability. Keep lifecycle separate from reviewer disposition.
+  const lifecycle = payload.decision === "APPROVED" ? "VALIDATED" : payload.decision === "MORE_EVIDENCE" ? "INVESTIGATING" : finding.lifecycle;
   const updated = { ...finding, lifecycle, decision: payload.decision, reviewerNotes: payload.notes };
   saveState({ ...state, findings: state.findings.map((item) => item.id === findingId ? updated : item) });
   return updated;
