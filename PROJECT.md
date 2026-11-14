@@ -39,6 +39,7 @@ Finding lifecycle (New → Investigating → Validated → Resolved), severity s
 - **Verification:** deterministic checks against fetched source; never let the LLM determine whether a reference exists.
 - **Correlation:** show explainable candidates; require human confirmation to merge.
 - **Export:** generate Markdown/JSON from stored evidence and decisions.
+- **Optional integrations:** Prune can proxy FastAPI's LLM calls; Maritime can run isolated verification jobs when execution is needed. See [INTEGRATIONS.md](INTEGRATIONS.md).
 
 FastAPI's deployment runtime is not selected. Firebase Hosting serves the React app; route API requests to a separate FastAPI host only after that host is chosen. Keep one deployable API application for the hackathon.
 
@@ -54,6 +55,7 @@ Full SAST/DAST, CVE database, automated exploitability detection, enterprise RBA
 
 - [Feature workflows](FEATURES.md)
 - [Security implementation guide](SECURITY_GUIDE.md)
+- [Integration contracts](INTEGRATIONS.md)
 - [Working rules](AGENTS.md)
 
 ## Decision rule
