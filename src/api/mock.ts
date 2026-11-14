@@ -41,19 +41,48 @@ export async function mockIntake(payload: IntakePayload): Promise<IntakeResponse
   await new Promise((resolve) => window.setTimeout(resolve, 650));
   const state = loadState();
   const analysisId = `AN-LOCAL-${Date.now()}`;
-  const findings = demoFindings.slice(0, Math.max(1, Math.min(payload.reports.length, 3))).map((finding, index) => ({
-    ...finding,
-    id: `VF-${Date.now().toString().slice(-5)}${index}`,
-    analysisId,
-    repository: payload.repositoryUrl.replace("https://github.com/", ""),
-    commitSha: payload.commitSha,
-    reportTitle: payload.reports[index]?.name || finding.reportTitle,
-    originalReport: payload.reports[index]?.content || finding.originalReport,
-    createdAt: "Just now",
-  }));
+  const findings: Finding[] = payload.reports.map((report, index) => {
+    const id = `VF-${Date.now().toString().slice(-5)}${index}`;
+    return {
+      id,
+      analysisId,
+      title: report.name || `Submitted report ${index + 1}`,
+      reportTitle: report.name || `Submitted report ${index + 1}`,
+      category: "Not decomposed",
+      severity: "UNASSESSED",
+      lifecycle: "NEW",
+      repository: payload.repositoryUrl.replace("https://github.com/", ""),
+      commitSha: payload.commitSha,
+      originalReport: report.content,
+      createdAt: "Just now",
+      reviewerNotes: "",
+      missingEvidence: [
+        "Local mock mode does not fetch GitHub code or verify source references.",
+        "Connect FastAPI to extract claims and perform deterministic source checks."
+      ],
+      investigationSteps: ["Submit the original report to a running FastAPI instance."],
+      businessImpact: "Not assessed",
+      claims: [{
+        id: `${id}-PENDING`,
+        title: "Claim extraction and source verification pending",
+        excerpt: report.content.slice(0, 180),
+        assertion: "No individual technical claims were extracted from this report.",
+        component: "Not analyzed",
+        filePath: "Unverified",
+        functionName: "Not extracted",
+        lineStart: 1,
+        lineEnd: 1,
+        status: "MANUAL_INVESTIGATION",
+        reason: "Offline local mode is a UI demonstration only. No repository was fetched and no verification was performed.",
+        snippet: [],
+        missingEvidence: ["Run backend intake to obtain source-locked evidence."]
+      }]
+    };
+  });
   saveState({ ...state, findings: [...findings, ...state.findings] });
   return { analysisId, mode: "local", findings, correlations: [] };
 }
+
 export async function mockReview(findingId: string, payload: ReviewPayload): Promise<Finding> {
   const state = loadState();
   const finding = state.findings.find((item) => item.id === findingId);
@@ -81,34 +110,24 @@ export async function mockLifecycle(findingId: string, lifecycle: LifecycleStatu
 export async function mockImpact(payload: ImpactPayload): Promise<ImpactResult> {
   await new Promise((resolve) => window.setTimeout(resolve, 650));
   const state = loadState();
-  const analysisFindings = state.findings.filter((finding) => finding.analysisId === payload.analysisId);
-  const changedFiles = ["auth.py", "admin.py", "worker.py"].map((path) => {
-    const linked = analysisFindings.filter((finding) => finding.claims.some((claim) => claim.filePath === path));
+  if (payload.analysisId !== "AN-LOCAL-DEMO") {
+    const original = state.findings.find((finding) => finding.analysisId === payload.analysisId);
     return {
-      path,
-      claimsAffected: linked.reduce((sum, finding) => sum + finding.claims.filter((claim) => claim.filePath === path).length, 0),
-      linkedFindingIds: linked.map((finding) => finding.id),
-      retestRequired: path === "auth.py" && linked.length > 0,
-      manualReviewRequired: path !== "auth.py" && linked.length > 0
+      ...demoImpact,
+      analysisId: payload.analysisId,
+      originalCommitSha: original?.commitSha || "NOT_VERIFIED",
+      currentCommitSha: payload.commitSha || "NOT_VERIFIED",
+      reference: "Unverified local input",
+      summary: "No source comparison was performed. Configure FastAPI for actual commit or PR impact analysis.",
+      changedFiles: [],
+      impacts: [],
+      warning: "Offline local mode cannot analyze changes to arbitrary repositories. No retest conclusion was produced."
     };
-  }).filter((item) => item.linkedFindingIds.length > 0);
-  const sourceImpact = state.impact.impacts[0];
-  const authFinding = analysisFindings.find((finding) => finding.claims.some((claim) => claim.filePath === "auth.py"));
-  const authClaim = authFinding?.claims.find((claim) => claim.filePath === "auth.py");
-  const impacts = sourceImpact && authFinding && authClaim
-    ? [{ ...sourceImpact, findingId: authFinding.id, claimId: authClaim.id }]
-    : [];
-  const result: ImpactResult = {
-    ...state.impact,
-    analysisId: payload.analysisId,
-    reference: payload.pullRequestUrl ? `PR #${payload.pullRequestUrl.split("/").slice(-1)[0]}` : payload.commitSha || "Submitted revision",
-    changedFiles,
-    impacts,
-    summary: "Local demo patch preview. Referenced functions may need retesting; no finding is resolved automatically."
-  };
-  saveState({ ...state, impact: result });
-  return result;
+  }
+  // Only the bundled fixed fixture contains an illustrative, prebuilt temporal diff.
+  return demoImpact;
 }
+
 export async function mockCorrelationDecision(id: string, decision: "CONFIRMED_DUPLICATE" | "KEPT_SEPARATE") {
   const state = loadState();
   const correlations = state.correlations.map((pair) => pair.id === id ? { ...pair, decision } : pair);

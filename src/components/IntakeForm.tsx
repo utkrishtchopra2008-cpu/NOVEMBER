@@ -82,7 +82,7 @@ export function IntakeForm({ onSubmit, busy }: Props) {
         <div className={`input-with-icon ${repositoryUrl && !repoValid ? "field-invalid" : ""}`}><Github size={17} /><input id="repo-url" value={repositoryUrl} onChange={(event) => setRepositoryUrl(event.target.value)} placeholder="https://github.com/owner/repository" /></div>
         <label className="field-label" htmlFor="commit-sha">Exact commit SHA <span className="field-hint">40 CHARACTERS</span></label>
         <div className={`input-with-icon mono-input ${commitSha && !shaValid ? "field-invalid" : ""}`}><GitCommitHorizontal size={17} /><input id="commit-sha" value={commitSha} onChange={(event) => setCommitSha(event.target.value)} placeholder="40-character hexadecimal SHA" maxLength={40} /><span className={shaValid ? "valid-indicator" : "invalid-indicator"}>{shaValid ? <CheckCircle2 size={16} /> : `${commitSha.length}/40`}</span></div>
-        <p className="field-footnote">{demoAvailable ? "Demo fixture loaded. These sample references are illustrative and are not links to a public source repository." : "Use a repository and commit accessible to the configured FastAPI service."}</p>
+        <p className="field-footnote">{demoAvailable ? "Demo fixture loaded. These sample references are illustrative and are not links to a public source repository." : "Use a repository and commit accessible to the configured FastAPI service."} Local mock mode saves report text in browser storage; do not submit confidential reports.</p>
       </div>
     </div>
     <div className="form-divider" />
