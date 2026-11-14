@@ -58,12 +58,10 @@ export function OverviewPage() {
       </section>
       <section className="panel workflow-panel"><div className="panel-heading"><div><span className="eyebrow">WORKFLOW</span><h2>Investigation path</h2></div><span className="micro-tag">MVP</span></div>
         {[
-          ["01", "Report intake", "Repository + commit + reports", "/intake", UploadCloud],
-          ["02", "Evidence matrix", "Commit-locked source checks", findings[0] ? `/matrix/${findings[0].id}` : "/intake", FileSearch],
-          ["03", "Correlation", "Explainable duplicate candidates", "/correlation", Network],
-          ["04", "Human review", "Explicit reviewer decision", "/review", BadgeCheck],
-          ["05", "Investigation packet", "Engineering-ready export", findings[0] ? `/packet/${findings[0].id}` : "/intake", BookOpen],
-          ["06", "Impact analysis", "PR overlap and temporal diff", "/impact", GitPullRequest],
+          ["01", "Intake & evidence", "Submit reports and verify exact-commit references", "/intake", UploadCloud],
+          ["02", "Triage", "Review overlaps, decisions, and investigation packets", "/correlation", Network],
+          ["03", "Claim evidence", "Inspect a finding's source references", findings[0] ? `/matrix/${findings[0].id}` : "/intake", FileSearch],
+          ["04", "Change impact", "Compare revisions and flag findings for retest", "/impact", GitPullRequest],
         ].map(([number, label, detail, to, Icon]) => {
           const ItemIcon = Icon as typeof Activity;
           return <Link className="workflow-step" to={String(to)} key={String(number)}><span className="workflow-number">{String(number)}</span><span className="workflow-icon"><ItemIcon size={16} /></span><span className="workflow-copy"><strong>{String(label)}</strong><small>{String(detail)}</small></span><ArrowUpRight size={15} /></Link>;
@@ -94,7 +92,7 @@ export function IntakePage() {
     <PageHeading kicker="INVESTIGATION / NEW ANALYSIS" title="Report intake" description="Anchor up to three existing vulnerability reports to one exact GitHub revision." action={<span className="step-indicator"><span>01</span> INTAKE</span>} />
     <div className="intake-layout">
       <div className="intake-main"><div className="panel form-panel"><IntakeForm onSubmit={handleSubmit} busy={busy} /></div>
-        {busy && <div className="progress-panel"><div className="progress-top"><div><span className="eyebrow">ANALYSIS RUNNING</span><strong>Decomposing and verifying claims</strong><small className="progress-subtext">The API completes intake synchronously. This may take up to 180 seconds.</small></div><RefreshCw className="spin" size={18} /></div><div className="progress-track progress-indeterminate"><span /></div><div className="progress-steps"><span className="active"><Sparkles size={13} /> Claim extraction and deterministic source checks</span></div></div>}
+        {busy && <div className="progress-panel"><div className="progress-top"><div><span className="eyebrow">ANALYSIS RUNNING</span><strong>Decomposing and verifying claims</strong><small className="progress-subtext">The API completes intake synchronously. This may take up to 180 seconds.</small></div><RefreshCw size={18} /></div><div className="progress-track progress-indeterminate"><span /></div><div className="progress-steps"><span className="active"><Sparkles size={13} /> Claim extraction and deterministic source checks</span></div></div>}
         {analysisId && <p className="field-footnote">Last analysis ID: <code>{analysisId}</code></p>}
       </div>
       <aside className="intake-aside"><div className="aside-card aside-dark"><span className="eyebrow">PROCESSING CONTRACT</span><h3>One source of truth.</h3><p>Every claim is checked against the same immutable repository revision.</p><div className="aside-rule" /><div className="aside-metric"><strong>01</strong><span>GitHub repository</span></div><div className="aside-metric"><strong>01</strong><span>Exact commit SHA</span></div><div className="aside-metric"><strong>03</strong><span>Maximum reports</span></div></div><div className="aside-card"><span className="micro-label">WHAT HAPPENS NEXT</span><div className="aside-list"><span><i>01</i> AI extracts atomic claims</span><span><i>02</i> Backend checks source references</span><span><i>03</i> Reviewer inspects evidence</span></div></div><div className="aside-disclaimer"><ShieldCheck size={16} /><span>Reference verification does not prove exploitability. The original report is preserved.</span></div></aside>
@@ -123,7 +121,7 @@ export function MatrixPage() {
     } catch (issue) { notify(issue instanceof Error ? issue.message : "Maritime check failed.", "error"); }
     finally { setSandboxBusy(""); }
   }
-  if (loading) return <div className="loading-panel"><RefreshCw className="spin" /> Loading commit-locked evidence…</div>;
+  if (loading) return <div className="loading-panel"><RefreshCw /> Loading commit-locked evidence…</div>;
   if (!finding) return <div className="empty-state">Finding not found. <Link to="/review">Return to review queue</Link></div>;
   const claims = finding.claims.filter((claim) => filter === "ALL" || claim.status === filter);
   return <div className="page-stack">
@@ -159,7 +157,7 @@ export function CorrelationPage() {
   return <div className="page-stack">
     <PageHeading kicker="INVESTIGATION / RELATIONSHIP ANALYSIS" title="Duplicate correlation" description="Inspect overlapping claims and decide whether findings should be linked. No automatic merging." />
     <div className="correlation-summary"><div><span className="eyebrow">CANDIDATE PAIRS</span><strong>{String(pairs.length).padStart(2, "0")}</strong><small>From stored analysis results</small></div><div><span className="eyebrow">PENDING REVIEW</span><strong>{String(pairs.filter((pair) => pair.decision === "PENDING").length).padStart(2, "0")}</strong><small>Awaiting human decision</small></div><div><span className="eyebrow">MERGE POLICY</span><strong>MANUAL</strong><small>Evidence is retained independently</small></div></div>
-    {loading ? <div className="loading-panel"><RefreshCw className="spin" /> Loading correlation candidates…</div> : pairs.length ? pairs.map((pair) => {
+    {loading ? <div className="loading-panel"><RefreshCw /> Loading correlation candidates…</div> : pairs.length ? pairs.map((pair) => {
       const left = findings.find((finding) => finding.id === pair.findingIds[0]);
       const right = findings.find((finding) => finding.id === pair.findingIds[1]);
       return <div className="panel candidate-panel" key={pair.id}>
@@ -214,7 +212,7 @@ export function ReviewPage() {
     } catch (error) { notify(error instanceof Error ? error.message : "Lifecycle update failed.", "error"); }
     finally { setSubmitting(false); }
   }
-  if (loading) return <div className="loading-panel"><RefreshCw className="spin" /> Loading review queue…</div>;
+  if (loading) return <div className="loading-panel"><RefreshCw /> Loading review queue…</div>;
   return <div className="page-stack">
     <PageHeading kicker="INVESTIGATION / REVIEW GATE" title="Human review queue" description="A reviewer owns every disposition. AI extraction and source checks do not make final decisions." />
     <div className="review-layout">
@@ -254,7 +252,7 @@ export function PacketPage() {
   }, [findingId]);
   return <div className="page-stack">
     <PageHeading kicker="INVESTIGATION / ENGINEERING HANDOFF" title="Investigation packet" description="A portable, evidence-linked record for the engineering team." action={<span className="export-format-pill"><Braces size={14} /> MARKDOWN / JSON</span>} />
-    {loading ? <div className="loading-panel"><RefreshCw className="spin" /> Building investigation packet…</div> : packet ? <><div className="packet-context"><div><span className="eyebrow">PACKET PREVIEW</span><strong>{packet.finding.id} · {packet.finding.repository}</strong></div><StatusBadge value={packet.finding.lifecycle} /></div><div className="callout-banner"><ShieldCheck size={17} /><div><strong>Packet warning</strong><span>{packet.warning}</span></div></div><PacketViewer finding={packet.finding} relatedReports={packet.relatedReports} packetMarkdown={packet.markdown} packetJson={packet.jsonPayload} issueDraft={issueDraft} /></> : <div className="empty-state">{error || "Finding not found."} <Link to="/review">Open review queue</Link></div>}
+    {loading ? <div className="loading-panel"><RefreshCw /> Building investigation packet…</div> : packet ? <><div className="packet-context"><div><span className="eyebrow">PACKET PREVIEW</span><strong>{packet.finding.id} · {packet.finding.repository}</strong></div><StatusBadge value={packet.finding.lifecycle} /></div><div className="callout-banner"><ShieldCheck size={17} /><div><strong>Packet warning</strong><span>{packet.warning}</span></div></div><PacketViewer finding={packet.finding} relatedReports={packet.relatedReports} packetMarkdown={packet.markdown} packetJson={packet.jsonPayload} issueDraft={issueDraft} /></> : <div className="empty-state">{error || "Finding not found."} <Link to="/review">Open review queue</Link></div>}
   </div>;
 }
 
@@ -323,7 +321,7 @@ export function ImpactPage() {
         <div className="input-with-icon"><GitPullRequest size={17} /><input id="impact-target" value={reference} onChange={(event) => setReference(event.target.value)} placeholder="PR URL, HEAD, branch, tag or SHA" /></div>
         {error && <span className="field-error">{error}</span>}
       </div>
-      <button className="button button-primary" disabled={busy || !analysisIds.length}>{busy ? <RefreshCw className="spin" size={16} /> : <Target size={16} />}{busy ? "Analyzing…" : "Analyze impact"}</button>
+      <button className="button button-primary" disabled={busy || !analysisIds.length}>{busy ? <RefreshCw size={16} /> : <Target size={16} />}{busy ? "Analyzing…" : "Analyze impact"}</button>
     </form>
     {result ? <>
       <div className="impact-context-note"><span>ORIGINAL <code>{result.originalCommitSha.slice(0, 12)}…</code></span><ArrowRight size={14} /><span>CURRENT <code>{result.currentCommitSha.slice(0, 12)}…</code></span><span className="impact-scope">{result.changedFilesScope.replaceAll("_", " ").toUpperCase()} SCOPE</span></div>

@@ -106,6 +106,6 @@ export function IntakeForm({ onSubmit, busy }: Props) {
       </div>
     </div>
     {error && <div className="form-error" role="alert">{error}</div>}
-    <div className="intake-submit-row"><div className="submit-assurance"><span className="assurance-dot" /> Evidence-first processing · No exploitability verdicts</div><button className="button button-primary button-large" type="submit" disabled={busy || loadingSample}>{busy ? <><LoaderCircle className="spin" size={17} /> Analyzing reports…</> : <>Decompose &amp; verify claims <ArrowRight size={17} /></>}</button></div>
+    <div className="intake-submit-row"><div className="submit-assurance"><span className="assurance-dot" /> Evidence-first processing · No exploitability verdicts</div><button className="button button-primary button-large" type="submit" disabled={busy || loadingSample}>{busy ? <><LoaderCircle size={17} /> Analyzing reports…</> : <>Decompose &amp; verify claims <ArrowRight size={17} /></>}</button></div>
   </form>;
 }

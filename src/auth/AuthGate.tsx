@@ -112,7 +112,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   return <main className="auth-screen">
     <section className="auth-card">
       <div className="auth-logo"><ShieldCheck size={26} /><div><strong>VULNFLOW</strong><span>SECURITY INVESTIGATION WORKBENCH</span></div></div>
-      {mode === "loading" ? <div className="auth-message" role="status"><LoaderCircle className="spin" size={22} /><h1>Connecting to the API</h1><p>Checking the backend mode and your session.</p></div>
+      {mode === "loading" ? <div className="auth-message" role="status"><LoaderCircle size={22} /><h1>Connecting to the API</h1><p>Checking the backend mode and your session.</p></div>
       : mode === "unavailable" ? <div className="auth-message" role="alert"><AlertCircle size={23} /><h1>API unavailable</h1><p>{error || "Cannot reach FastAPI."} No local-demo fallback was activated.</p><button className="button button-primary" onClick={() => setRetry((value) => value + 1)}>Retry connection</button></div>
       : mode === "unconfigured" ? <div className="auth-message" role="alert"><AlertCircle size={23} /><h1>Live authentication not configured</h1><p>Configure the browser-safe VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY for the same Supabase project used by FastAPI. Never use a service-role or secret key.</p><button className="button button-secondary" onClick={() => setRetry((value) => value + 1)}>Recheck configuration</button></div>
       : <div className="auth-form-wrap">
@@ -123,7 +123,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
           <label className="field-label" htmlFor="auth-password">Password</label>
           <input id="auth-password" type="password" required autoComplete="current-password" placeholder="Your account password" value={password} onChange={(event) => setPassword(event.target.value)} disabled={busy} />
           {loginError && <div className="form-error" role="alert">{loginError}</div>}
-          <button type="submit" className="button button-primary button-large" disabled={busy}>{busy ? <><LoaderCircle className="spin" size={16} /> Signing in…</> : <><LockKeyhole size={16} /> Sign in <ArrowRight size={16} /></>}</button>
+          <button type="submit" className="button button-primary button-large" disabled={busy}>{busy ? <><LoaderCircle size={16} /> Signing in…</> : <><LockKeyhole size={16} /> Sign in <ArrowRight size={16} /></>}</button>
         </form>
         <p className="auth-footnote">Use an existing authorized account. No self-service registration or permission escalation is provided.</p>
       </div>}
