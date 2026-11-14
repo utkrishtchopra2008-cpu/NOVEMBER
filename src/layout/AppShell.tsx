@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { ArrowUpRight, Bell, ChevronRight, CircleHelp, ClipboardCheck, FileText, GitBranch, GitPullRequest, LayoutDashboard, Network, ShieldEllipsis, ShieldCheck, UploadCloud } from "lucide-react";
+import { ArrowUpRight, Bell, ChevronRight, CircleHelp, ClipboardCheck, FileText, GitBranch, GitPullRequest, LayoutDashboard, Network, ShieldEllipsis, ShieldCheck, UploadCloud, LogOut } from "lucide-react";
 import { getFindings, isDemoMode } from "../api/client";
 import styles from "./AppShell.module.css";
+import { useAuth } from "../auth/AuthGate";
+import { useToast } from "../context/ToastContext";
 
 const navigation = [
   { label: "OVERVIEW", items: [{ to: "/", label: "Command center", icon: LayoutDashboard }] },
@@ -22,6 +24,12 @@ const routeLabels: Array<[RegExp, string]> = [
 
 export function AppShell() {
   const location = useLocation();
+  const { mode, user, signOut } = useAuth();
+  const { notify } = useToast();
+  async function handleSignOut() {
+    try { await signOut(); }
+    catch (error) { notify(error instanceof Error ? error.message : "Sign-out failed.", "error"); }
+  }
   const current = routeLabels.find(([pattern]) => pattern.test(location.pathname))?.[1] || "Command center";
   const [pinnedSha, setPinnedSha] = useState("");
   const [firstFindingId, setFirstFindingId] = useState("");
@@ -55,7 +63,7 @@ export function AppShell() {
       <div className="sidebar-bottom">
         <div className="sidebar-status"><span className="live-dot" /><span>{isDemoMode ? "Local mock data" : "API endpoint configured"}</span><span className="status-version">v0.1</span></div>
         <button className="sidebar-help" onClick={() => window.open("https://github.com/utkrishtchopra2008-cpu/NOVEMBER", "_blank", "noopener,noreferrer")}><CircleHelp size={16} /> Project documentation <ArrowUpRight size={13} /></button>
-        <div className="sidebar-user"><div className="user-avatar">SR</div><div><strong>Security Reviewer</strong><span>Reviewer workspace</span></div><Bell size={16} /></div>
+        <div className="sidebar-user"><div className="user-avatar">{user?.email?.[0]?.toUpperCase() || "SR"}</div><div><strong>{mode === "live" ? (user?.email || "Authenticated user") : "Demo Reviewer"}</strong><span>{mode === "live" ? "Signed in" : "Demo workspace"}</span></div>{mode === "live" ? <button className="signout-control" onClick={() => void handleSignOut()} title="Sign out"><LogOut size={15} /> Sign out</button> : <Bell size={16} />}</div>
       </div>
     </aside>
     <div className="main-column">

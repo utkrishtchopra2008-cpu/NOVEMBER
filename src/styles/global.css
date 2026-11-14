@@ -583,3 +583,25 @@ code, pre, .mono { font-family: var(--vf-mono); }
 .impact-claim-picker { max-width: 100%; margin: 0 0 14px; padding: 12px; background: #f8f6ef; border: 1px solid var(--vf-line); }
 .impact-claim-picker .field-label { margin: 0 0 8px; }
 .impact-claim-picker select { width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-family: var(--vf-mono); }
+
+/* Authentication: only shown when FastAPI explicitly reports live mode. */
+.auth-screen { display: grid; min-height: 100vh; place-items: center; padding: 24px; background: var(--vf-bg); }
+.auth-card { width: min(100%, 480px); padding: 32px; background: #fff; border: 2px solid var(--vf-ink); box-shadow: 8px 8px 0 rgba(34,51,38,.18); }
+.auth-logo { display: flex; align-items: center; gap: 13px; padding-bottom: 24px; border-bottom: 1px solid var(--vf-line); }
+.auth-logo svg { color: var(--vf-green); }
+.auth-logo strong { display: block; font-size: 20px; letter-spacing: .08em; }
+.auth-logo span { display: block; margin-top: 4px; color: var(--vf-muted); font: 10px var(--vf-mono); }
+.auth-section-heading { padding: 24px 0 18px; }
+.auth-section-heading h1, .auth-message h1 { margin: 10px 0; font-size: 26px; line-height: 1.2; }
+.auth-section-heading p, .auth-message p { margin: 0; color: var(--vf-muted); font-size: 13px; line-height: 1.6; }
+.auth-form { display: flex; flex-direction: column; gap: 10px; }
+.auth-form input { width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid var(--vf-line-strong); border-radius: var(--vf-radius); background: #fff; font-family: var(--vf-font); }
+.auth-form input:focus-visible { outline: 3px solid var(--vf-green-pale); outline-offset: 1px; }
+.auth-form .button { margin-top: 12px; justify-content: center; }
+.auth-footnote { margin: 20px 0 0; color: var(--vf-muted); font-size: 11px; line-height: 1.6; }
+.auth-message { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding-top: 28px; }
+.auth-message > svg { color: var(--vf-green); }
+.auth-message .button { margin-top: 12px; }
+.signout-control { display: flex; align-items: center; gap: 6px; margin-left: auto; padding: 6px; border: 1px solid rgba(255,255,255,.3); color: #f1f6f1; background: transparent; font: 10px var(--vf-mono); }
+.signout-control:hover { background: rgba(255,255,255,.12); }
+@media (max-width: 600px) { .auth-card { padding: 24px 18px; } .auth-section-heading h1, .auth-message h1 { font-size: 22px; } }

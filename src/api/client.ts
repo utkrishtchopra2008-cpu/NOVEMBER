@@ -8,6 +8,7 @@ import type {
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 export const isDemoMode = !API_BASE;
+export type ApiMode = "local" | "demo" | "live";
 let accessTokenProvider: () => Promise<string | null> = async () => null;
 const api = API_BASE ? createApi(API_BASE, () => accessTokenProvider()) : null;
 
@@ -17,6 +18,16 @@ export function configureAccessTokenProvider(provider: () => Promise<string | nu
 function apiClient() {
   if (!api) throw new Error("FastAPI is not configured.");
   return api;
+}
+
+// Never silently fall back to local fixtures when a configured API is unavailable.
+export async function getApiMode(): Promise<ApiMode> {
+  if (!api) return "local";
+  const capabilities = await apiClient().capabilities();
+  if (capabilities.mode !== "demo" && capabilities.mode !== "live") {
+    throw new Error("Unexpected backend mode.");
+  }
+  return capabilities.mode;
 }
 
 const verificationMap = {

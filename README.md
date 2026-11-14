@@ -37,7 +37,7 @@ Without `VITE_API_BASE_URL`, React uses **local mock mode** with illustrative bu
 
 ## Production integration
 
-Set `VITE_API_BASE_URL` to a separately hosted FastAPI API. The FastAPI live mode requires Supabase Auth access tokens, a configured database and Prune/GitHub credentials server-side. The frontend's API boundary exposes `configureAccessTokenProvider()` but **does not currently implement Supabase sign-in**. Do not deploy live mode without a working authentication flow and server-side access-control verification.
+Set `VITE_API_BASE_URL` to a separately hosted FastAPI API. The FastAPI live mode requires Supabase Auth access tokens, a configured database and Prune/GitHub credentials server-side. The React frontend now supports a **Supabase email/password sign-in gate** for existing provisioned users. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to the **same** project configured on FastAPI. The client handles session refresh; FastAPI still validates each bearer token and owns row access. Live mode refuses to fall back to offline demo when the API or configuration is unavailable. This does **not** mean production auth or RLS has been verified against real project credentials.
 
 Do not place Supabase secret/service-role keys, GitHub tokens, Prune credentials or Maritime tokens in any `VITE_*` variable. A browser-safe Supabase publishable key is not an API authorization token. Prune and Maritime are server-side integrations only.
 
