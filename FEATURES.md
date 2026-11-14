@@ -48,8 +48,10 @@ Preserve evidence from the original commit and compare it with a later revision.
 - **FastAPI:** API, report orchestration, LLM calls, deterministic source checks, correlation, packet generation, and PR impact analysis.
 - **Supabase:** intended platform; the exact division of database, authentication, storage, and API responsibilities remains to be confirmed.
 - **Firebase:** intended deployment platform; specify the frontend hosting target and FastAPI runtime before deployment configuration is added.
+- **Prune:** optional LLM gateway used by FastAPI for supported claim-extraction calls, cost controls, security checks, and receipts.
+- **Maritime:** optional isolated execution layer used by FastAPI for repository tests or generated verification jobs that should not run in the API process.
 - **GitHub API:** read repository trees/files and commit/PR diffs at explicit refs.
-- **Storage:** keep each analysis tied to repository, commit SHA, source evidence, reports, claims, relationships, and review history.
+- **Storage:** keep each analysis tied to repository, commit SHA, source evidence, reports, claims, relationships, review history, and integration metadata.
 
 Keep verification deterministic and separate from LLM output. Treat the LLM as an extractor, not as the authority on source truth or exploitability.
 
@@ -61,4 +63,4 @@ Use one prepared repository/commit and three reports: one with a valid reference
 
 Full SAST/DAST, CVE database, exploitability detection, automatic finding closure, enterprise RBAC, and unapproved integrations.
 
-See [PROJECT.md](PROJECT.md), [SECURITY_GUIDE.md](SECURITY_GUIDE.md), and [AGENTS.md](AGENTS.md).
+See [PROJECT.md](PROJECT.md), [SECURITY_GUIDE.md](SECURITY_GUIDE.md), [INTEGRATIONS.md](INTEGRATIONS.md), and [AGENTS.md](AGENTS.md).
