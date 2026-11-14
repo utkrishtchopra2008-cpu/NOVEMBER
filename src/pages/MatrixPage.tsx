@@ -1,0 +1,1 @@
+export { MatrixPage as default } from "./Pages";
