@@ -39,7 +39,21 @@ export interface Finding {
   businessImpact?: string;
   reviewerNotes: string;
   decision?: ReviewDecision;
+  reviewHistory?: Array<{ id: string; decision: ReviewDecision; notes: string; reviewerId: string; createdAt: string }>;
+  verificationJobs?: SandboxCheck[];
   createdAt: string;
+}
+export interface SandboxCheck {
+  id?: string;
+  finding_id: string;
+  claim_id: string;
+  file_path: string;
+  commit_sha: string;
+  sandbox_id: string;
+  status: "PASSED" | "FAILED";
+  exit_code: number;
+  created_at?: string;
+  message: string;
 }
 
 export interface IntakeReport {
@@ -108,11 +122,17 @@ export interface ImpactResult {
   warning: string;
   changedFilesScope: "referenced_files";
 }
+export interface ImpactHistoryEntry {
+  id: string;
+  createdAt: string;
+  result: ImpactResult;
+}
 export interface PacketData {
   finding: Finding;
   relatedReports: CorrelationCandidate[];
   markdown: string;
   warning: string;
+  jsonPayload?: unknown;
 }
 export interface IssueDraft {
   title: string;

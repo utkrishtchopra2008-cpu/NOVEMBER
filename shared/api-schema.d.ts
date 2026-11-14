@@ -225,6 +225,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/findings/{id}/sandbox-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sandbox Check */
+        post: operations["sandbox_check_api_findings__id__sandbox_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/analyses/{analysis_id}/impact-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Impact History */
+        get: operations["impact_history_api_analyses__analysis_id__impact_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/impact-analysis": {
         parameters: {
             query?: never;
@@ -265,6 +299,8 @@ export interface components {
             findings?: components["schemas"]["Finding"][];
             /** Correlations */
             correlations?: components["schemas"]["Correlation"][];
+            /** Impact History */
+            impact_history?: components["schemas"]["ImpactHistoryEntry"][];
             /** Created At */
             created_at?: string;
         };
@@ -372,6 +408,8 @@ export interface components {
             business_impact: string;
             /** Reviews */
             reviews?: components["schemas"]["Review"][];
+            /** Verification Jobs */
+            verification_jobs?: components["schemas"]["MaritimeJob"][];
             /** Missing Evidence */
             missing_evidence?: string[];
             /** Investigation Steps */
@@ -387,6 +425,14 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ImpactHistoryEntry */
+        ImpactHistoryEntry: {
+            /** Id */
+            id?: string;
+            /** Created At */
+            created_at?: string;
+            result: components["schemas"]["ImpactResult"];
         };
         /** ImpactInput */
         ImpactInput: {
@@ -468,6 +514,37 @@ export interface components {
             lifecycle: "New" | "Investigating" | "Validated" | "Resolved";
             /** Notes */
             notes: string;
+        };
+        /** MaritimeJob */
+        MaritimeJob: {
+            /** Id */
+            id?: string;
+            /** Finding Id */
+            finding_id: string;
+            /** Claim Id */
+            claim_id: string;
+            /** File Path */
+            file_path: string;
+            /** Commit Sha */
+            commit_sha: string;
+            /** Sandbox Id */
+            sandbox_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "PASSED" | "FAILED";
+            /** Exit Code */
+            exit_code: number;
+            /** Created At */
+            created_at?: string;
+            /** Message */
+            message: string;
+        };
+        /** MaritimeJobInput */
+        MaritimeJobInput: {
+            /** Claim Id */
+            claim_id: string;
         };
         /** Packet */
         Packet: {
@@ -945,6 +1022,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sandbox_check_api_findings__id__sandbox_check_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaritimeJobInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaritimeJob"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    impact_history_api_analyses__analysis_id__impact_history_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                analysis_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImpactHistoryEntry"][];
                 };
             };
             /** @description Validation Error */

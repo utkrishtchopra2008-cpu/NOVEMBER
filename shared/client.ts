@@ -6,6 +6,7 @@ export type Claim = Schemas['Claim'];
 export type Analysis = Schemas['Analysis'];
 export type Intake = Schemas['Intake'];
 export type ImpactResult = Schemas['ImpactResult'];
+export type ImpactHistoryEntry = Schemas['ImpactHistoryEntry'];
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string, message: string) {
@@ -43,6 +44,8 @@ export function createApi(baseUrl: string, getAccessToken: () => Promise<string 
     packet: (findingId: string) => request<Schemas['Packet']>(`/api/findings/${id(findingId)}/packet`),
     markdown: (findingId: string) => request<string>(`/api/findings/${id(findingId)}/packet.md`, undefined, true),
     impact: (input: Schemas['ImpactInput']) => request<ImpactResult>('/api/impact-analysis', input),
+    impactHistory: (analysisId: string) => request<ImpactHistoryEntry[]>(`/api/analyses/${id(analysisId)}/impact-history`),
+    sandboxCheck: (findingId: string, claimId: string) => request<Schemas['MaritimeJob']>(`/api/findings/${id(findingId)}/sandbox-check`, { claim_id: claimId }),
     issueDraft: (findingId: string) => request<{title: string; body: string; github_url: string | null; published: boolean; message: string}>(`/api/findings/${id(findingId)}/issue-draft`),
     capabilities: () => request<{mode: 'demo' | 'live'; github_issue_push: boolean; jira_issue_push: boolean; maritime_execution: boolean; claim_extraction: string; intake_response: string}>('/api/capabilities'),
   };

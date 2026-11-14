@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Activity, AlertTriangle, ArrowUpRight, BadgeCheck, BookOpen, Braces, Check, CheckCircle2, ChevronRight, Clock3, FileCode2, FileSearch, GitBranch, GitCommitHorizontal, GitPullRequest, Layers3, ListFilter, Network, Plus, RefreshCw, ShieldAlert, ShieldCheck, Sparkles, Target, UploadCloud, XCircle, ArrowRight } from "lucide-react";
-import { analyzeImpact, getCorrelations, getFinding, getFindings, getIssueDraft, getPacket, isDemoMode, submitCorrelationDecision, submitIntake, submitReview, updateLifecycle } from "../api/client";
-import type { CorrelationCandidate, Finding, ImpactResult, ReviewDecision } from "../types";
+import { analyzeImpact, getCorrelations, getFinding, getFindings, getImpactHistory, getIntegrationCapabilities, getIssueDraft, getPacket, isDemoMode, runSandboxCheck, submitCorrelationDecision, submitIntake, submitReview, updateLifecycle } from "../api/client";
+import type { CorrelationCandidate, Finding, ImpactHistoryEntry, ImpactResult, ReviewDecision } from "../types";
 import { useToast } from "../context/ToastContext";
 import { IntakeForm } from "../components/IntakeForm";
 import { ClaimMatrixCard } from "../components/ClaimMatrixCard";
@@ -107,8 +107,22 @@ export function MatrixPage() {
   const [finding, setFinding] = useState<Finding | null>(null);
   const [filter, setFilter] = useState("ALL");
   const [loading, setLoading] = useState(true);
+  const [maritimeEnabled, setMaritimeEnabled] = useState(false);
+  const [sandboxBusy, setSandboxBusy] = useState("");
+  const [sandboxResults, setSandboxResults] = useState<Record<string, { status: string; message: string }>>({});
   const navigate = useNavigate();
-  useEffect(() => { let active = true; setLoading(true); getFinding(findingId).then((value) => active && setFinding(value)).catch(() => active && setFinding(null)).finally(() => active && setLoading(false)); return () => { active = false; }; }, [findingId]);
+  const { notify } = useToast();
+  useEffect(() => { let active = true; setLoading(true); getFinding(findingId).then((value) => { if (active) { setFinding(value); setSandboxResults(Object.fromEntries((value.verificationJobs || []).map((job) => [job.claim_id, { status: job.status, message: job.message }]))); } }).catch(() => active && setFinding(null)).finally(() => active && setLoading(false)); return () => { active = false; }; }, [findingId]);
+  useEffect(() => { let active = true; getIntegrationCapabilities().then((caps) => { if (active) setMaritimeEnabled(!!caps?.maritime_execution); }).catch(() => { if (active) setMaritimeEnabled(false); }); return () => { active = false; }; }, []);
+  async function sandboxCheck(claimId: string) {
+    setSandboxBusy(claimId);
+    try {
+      const job = await runSandboxCheck(findingId, claimId);
+      setSandboxResults((current) => ({ ...current, [claimId]: { status: job.status, message: job.message } }));
+      setFinding((current) => current ? { ...current, verificationJobs: [...(current.verificationJobs || []), job] } : current);
+    } catch (issue) { notify(issue instanceof Error ? issue.message : "Maritime check failed.", "error"); }
+    finally { setSandboxBusy(""); }
+  }
   if (loading) return <div className="loading-panel"><RefreshCw className="spin" /> Loading commit-locked evidence…</div>;
   if (!finding) return <div className="empty-state">Finding not found. <Link to="/review">Return to review queue</Link></div>;
   const claims = finding.claims.filter((claim) => filter === "ALL" || claim.status === filter);
@@ -117,7 +131,7 @@ export function MatrixPage() {
     <div className="finding-context panel"><div className="finding-context-main"><div className="finding-title-line"><span className="finding-id">{finding.id}</span><StatusBadge value={finding.severity} /><StatusBadge value={finding.lifecycle} /></div><h2>{finding.title}</h2><p>{finding.repository}</p><div className="commit-context"><GitCommitHorizontal size={15} /><span>LOCKED COMMIT</span><code>{finding.commitSha}</code></div></div><div className="finding-context-side"><span className="micro-label">ORIGINAL REPORT</span><p>{finding.originalReport}</p><Link to={`/review/${finding.id}`} className="text-link">Review finding <ArrowUpRight size={14} /></Link></div></div>
     <div className="callout-banner"><ShieldCheck size={18} /><div><strong>{isDemoMode ? "Illustrative local evidence — not independently verified" : "Reference verification is not an exploitability verdict."}</strong><span>{isDemoMode ? "Sample references are prebuilt UI examples. Newly entered reports are not checked until you connect FastAPI." : "These checks establish whether source references are consistent at this SHA. They do not prove that the described behavior is reachable or exploitable."}</span></div></div>
     <div className="matrix-toolbar"><div><span className="eyebrow">ATOMIC CLAIMS</span><h2>{finding.claims.length} claims extracted</h2></div><div className="filter-tabs"><button className={filter === "ALL" ? "selected" : ""} onClick={() => setFilter("ALL")}>All <b>{finding.claims.length}</b></button><button className={filter === "VERIFIED_REFERENCE" ? "selected" : ""} onClick={() => setFilter("VERIFIED_REFERENCE")}>Verified</button><button className={filter === "INCONSISTENT_REFERENCE" ? "selected" : ""} onClick={() => setFilter("INCONSISTENT_REFERENCE")}>Inconsistent</button><button className={filter === "MANUAL_INVESTIGATION" ? "selected" : ""} onClick={() => setFilter("MANUAL_INVESTIGATION")}>Manual</button></div></div>
-    <div className="claim-list">{claims.map((claim) => <ClaimMatrixCard key={claim.id} claim={claim} onReview={() => navigate(`/review/${finding.id}`)} />)}{!claims.length && <div className="empty-state">No claims match this verification filter.</div>}</div>
+    <div className="claim-list">{claims.map((claim) => { const canSandbox = maritimeEnabled && claim.status === "VERIFIED_REFERENCE" && claim.filePath.endsWith(".py"); const job = sandboxResults[claim.id]; return <ClaimMatrixCard key={claim.id} claim={claim} onReview={() => navigate(`/review/${finding.id}`)} onSandboxCheck={canSandbox ? () => void sandboxCheck(claim.id) : undefined} sandboxBusy={sandboxBusy === claim.id} sandboxStatus={job?.status} sandboxMessage={job?.message} />; })}{!claims.length && <div className="empty-state">No claims match this verification filter.</div>}</div>
   </div>;
 }
 
@@ -240,7 +254,7 @@ export function PacketPage() {
   }, [findingId]);
   return <div className="page-stack">
     <PageHeading kicker="INVESTIGATION / ENGINEERING HANDOFF" title="Investigation packet" description="A portable, evidence-linked record for the engineering team." action={<span className="export-format-pill"><Braces size={14} /> MARKDOWN / JSON</span>} />
-    {loading ? <div className="loading-panel"><RefreshCw className="spin" /> Building investigation packet…</div> : packet ? <><div className="packet-context"><div><span className="eyebrow">PACKET PREVIEW</span><strong>{packet.finding.id} · {packet.finding.repository}</strong></div><StatusBadge value={packet.finding.lifecycle} /></div><div className="callout-banner"><ShieldCheck size={17} /><div><strong>Packet warning</strong><span>{packet.warning}</span></div></div><PacketViewer finding={packet.finding} relatedReports={packet.relatedReports} packetMarkdown={packet.markdown} issueDraft={issueDraft} /></> : <div className="empty-state">{error || "Finding not found."} <Link to="/review">Open review queue</Link></div>}
+    {loading ? <div className="loading-panel"><RefreshCw className="spin" /> Building investigation packet…</div> : packet ? <><div className="packet-context"><div><span className="eyebrow">PACKET PREVIEW</span><strong>{packet.finding.id} · {packet.finding.repository}</strong></div><StatusBadge value={packet.finding.lifecycle} /></div><div className="callout-banner"><ShieldCheck size={17} /><div><strong>Packet warning</strong><span>{packet.warning}</span></div></div><PacketViewer finding={packet.finding} relatedReports={packet.relatedReports} packetMarkdown={packet.markdown} packetJson={packet.jsonPayload} issueDraft={issueDraft} /></> : <div className="empty-state">{error || "Finding not found."} <Link to="/review">Open review queue</Link></div>}
   </div>;
 }
 
@@ -250,6 +264,8 @@ export function ImpactPage() {
   const [analysisId, setAnalysisId] = useState("");
   const [reference, setReference] = useState(isDemoMode ? "DEMO" : "HEAD");
   const [result, setResult] = useState<ImpactResult | null>(null);
+  const [history, setHistory] = useState<ImpactHistoryEntry[]>([]);
+  const [selectedHistoryId, setSelectedHistoryId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [diffMode, setDiffMode] = useState<"split" | "timeline">("split");
@@ -259,10 +275,22 @@ export function ImpactPage() {
   useEffect(() => {
     setSelectedImpactKey("");
     setResult(null);
+    setHistory([]);
+    setSelectedHistoryId("");
   }, [analysisId]);
   useEffect(() => {
     if (!analysisId && analysisIds.length) setAnalysisId(analysisIds[0]);
   }, [analysisIds, analysisId]);
+  useEffect(() => {
+    let active = true;
+    if (analysisId && !isDemoMode) getImpactHistory(analysisId).then((entries) => {
+      if (!active) return;
+      setHistory(entries);
+      const latest = entries[entries.length - 1];
+      if (latest) { setResult(latest.result); setSelectedHistoryId(latest.id); }
+    }).catch((issue) => { if (active) notify(issue instanceof Error ? issue.message : "Could not load comparison history.", "error"); });
+    return () => { active = false; };
+  }, [analysisId, notify]);
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (!analysisId) return setError("Submit an intake analysis before comparing a later revision.");
@@ -273,6 +301,11 @@ export function ImpactPage() {
     try {
       const next = await analyzeImpact(isPr ? { analysisId, pullRequestUrl: reference.trim() } : { analysisId, commitSha: reference.trim() });
       setResult(next);
+      if (!isDemoMode) {
+        const entries = await getImpactHistory(analysisId);
+        setHistory(entries);
+        setSelectedHistoryId(entries[entries.length - 1]?.id || "");
+      }
       notify(isDemoMode ? "Local preview only; no GitHub change was checked." : "Impact analysis updated. Review retest and manual-mapping flags.", isDemoMode ? "info" : "success");
     } catch (issue) { notify(issue instanceof Error ? issue.message : "Impact analysis failed.", "error"); }
     finally { setBusy(false); }
@@ -297,6 +330,7 @@ export function ImpactPage() {
       <div className="impact-summary-grid"><StatCard label="Referenced files changed" value={String(result.changedFiles.length).padStart(2, "0")} caption="Not a complete PR file inventory" icon={FileCode2} /><StatCard label="Linked findings" value={String(new Set(result.changedFiles.flatMap((file) => file.linkedFindingIds)).size).padStart(2, "0")} caption="Historical evidence overlaps" icon={ShieldCheck} /><StatCard label="Retest required" value={String(result.impacts.filter((item) => item.flag === "RETEST_REQUIRED").length).padStart(2, "0")} caption="Per-claim retest flags" icon={GitPullRequest} tone="amber" /></div>
       <section className="panel impact-graph-panel"><div className="panel-heading"><div><span className="eyebrow">CHANGE BLAST RADIUS</span><h2>Impact map</h2></div><span className="impact-legend"><i /> Retest / manual mapping</span></div><ImpactTree result={result} findings={findings} /></section>
       <section className="panel temporal-panel"><div className="panel-heading"><div><span className="eyebrow">FEATURE 06 / HISTORICAL EVIDENCE</span><h2>Temporal evidence diff</h2></div><div className="filter-tabs"><button className={diffMode === "split" ? "selected" : ""} onClick={() => setDiffMode("split")}>Side by side</button><button className={diffMode === "timeline" ? "selected" : ""} onClick={() => setDiffMode("timeline")}>Timeline</button></div></div>
+        {diffMode === "timeline" && history.length > 0 && <div className="temporal-saved-history"><span className="micro-label">SAVED COMPARISONS</span>{[...history].reverse().map((entry) => <button className={selectedHistoryId === entry.id ? "selected" : ""} key={entry.id} onClick={() => { setResult(entry.result); setSelectedHistoryId(entry.id); setSelectedImpactKey(""); }}><strong>{entry.result.currentCommitSha.slice(0, 12)}…</strong><small>{new Date(entry.createdAt).toLocaleString()} · {entry.result.impacts.length} claims</small></button>)}</div>}
         {result.impacts.length > 0 && <div className="impact-claim-picker">
           <label className="field-label" htmlFor="impact-claim">Affected claim ({result.impacts.length} total)</label>
           <select

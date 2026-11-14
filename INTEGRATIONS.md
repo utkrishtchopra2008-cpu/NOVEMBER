@@ -1,6 +1,6 @@
 # VulnFlow Integrations
 
-This document defines the planned integration boundaries for Prune and Maritime. It documents interfaces and safeguards; it does not add vendor credentials or deploy either service.
+This document defines the integration boundaries for Prune and Maritime. Both credentials are read only by FastAPI from environment variables; never commit their values or expose them to React.
 
 ## Roles
 
@@ -22,7 +22,7 @@ The browser must never call Prune or Maritime directly. Their credentials remain
 4. FastAPI sends report text and selected source context to Prune for structured claim extraction.
 5. FastAPI stores claims and Prune metadata in Supabase.
 6. Deterministic verification runs inside FastAPI for file, line, and supported function references.
-7. If execution is needed, FastAPI sends a limited source snapshot and task to a disposable Maritime sandbox.
+7. A reviewer may request a syntax-only recheck for a verified Python reference; FastAPI sends that one pinned source file to a disposable Maritime sandbox with internet disabled.
 8. FastAPI stores the result, shows the evidence matrix, and creates the investigation packet.
 
 A reference match does not prove exploitability. A changed file does not prove remediation.
@@ -103,6 +103,8 @@ Never upload a GitHub token to the sandbox. Do not execute arbitrary commands ta
 
 Maritime's REST base URL is `https://api.maritime.sh`. Authenticate server-side with a Bearer `mk_` key. Use its sandbox, file, command, and lifecycle APIs through a small FastAPI adapter so the rest of VulnFlow does not depend on vendor-specific calls.
 
+The MVP exposes `POST /api/findings/{id}/sandbox-check` with `{ "claim_id": "..." }`. It accepts only a verified `.py` claim and the finding's original commit. The backend creates a five-minute ephemeral sandbox with internet disabled, runs a fixed Python syntax parser, stores only the bounded result and sandbox ID, then requests sandbox deletion. It never runs repository tests, imports project modules, or accepts commands from reports or users. A successful syntax check is not evidence of exploitability or remediation. The credential must have Maritime's `sandboxes` scope.
+
 Persist:
 
 - VulnFlow analysis ID
@@ -141,7 +143,7 @@ Before calling either integration complete:
 - A FastAPI request reaches Prune and returns the expected claim schema.
 - The response records usable Prune metadata without exposing secrets.
 - A repeated safe request demonstrates the selected cache behavior.
-- A Maritime sandbox runs one fixed verifier and returns a bounded result.
+- A Maritime sandbox runs the fixed syntax parser with internet disabled and is deleted after the result is collected.
 - Invalid or unauthorized requests fail before either vendor is called.
 - Timeouts, rate limits, provider failures, and sandbox failures produce safe, actionable errors.
 - Supabase RLS and server-side authorization still protect every stored analysis.

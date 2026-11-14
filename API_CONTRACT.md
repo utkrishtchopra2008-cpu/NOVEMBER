@@ -22,6 +22,8 @@ Requests and responses use snake_case JSON. Success responses are direct objects
 | Packet preview/JSON | GET /api/findings/{id}/packet → Packet |
 | Markdown download | GET /api/findings/{id}/packet.md → text/markdown |
 | Impact/temporal diff | POST /api/impact-analysis → ImpactResult |
+| Saved impact history | GET /api/analyses/{analysis_id}/impact-history → ImpactHistoryEntry[] |
+| Optional isolated syntax check | POST /api/findings/{id}/sandbox-check → MaritimeJob |
 | Issue handoff | GET /api/findings/{id}/issue-draft → reviewable draft |
 | Feature availability | GET /api/capabilities |
 
@@ -39,9 +41,11 @@ Review: `{ "decision": "APPROVED" | "REJECTED" | "MORE_EVIDENCE", "notes": "requ
 
 Correlation decision: `{ "decision": "CONFIRMED_DUPLICATE" | "KEPT_SEPARATE" }`. Confirmation links evidence; it does not delete/merge findings. A reviewed pair cannot be silently overwritten.
 
-Impact: `{ "analysis_id": "...", "new_commit_sha": "HEAD" }` or exactly one of pr_url/pr_number in place of new_commit_sha. The latter field accepts a SHA, branch or tag, resolved once to a full SHA. PR URLs must belong to the same repository. Response fields include both pinned SHAs, changed_files, and per-claim impacts with original/current line arrays, unified diff, reason, flag, and finding_id. The v1 changed_files_scope is referenced_files, not a complete PR file inventory or call graph. Uncertain mappings are MANUAL_MAPPING_REQUIRED; changed code is RETEST_REQUIRED. Function comparison currently supports Python, including moved functions.
+Impact: `{ "analysis_id": "...", "new_commit_sha": "HEAD" }` or exactly one of pr_url/pr_number in place of new_commit_sha. The latter field accepts a SHA, branch or tag, resolved once to a full SHA. PR URLs must belong to the same repository. Response fields include both pinned SHAs, changed_files, and per-claim impacts with original/current line arrays, unified diff, reason, flag, and finding_id. Each completed result is appended to that analysis and can be read from `GET /api/analyses/{analysis_id}/impact-history`; the route is owner-scoped like all analysis reads. The v1 changed_files_scope is referenced_files, not a complete PR file inventory or call graph. A changed reference that was already inconsistent or unverified at the baseline requires MANUAL_MAPPING_REQUIRED. Otherwise, changed code may be RETEST_REQUIRED. Function comparison currently supports Python, including moved functions.
 
 Packet contains finding, related_reports, markdown, warning. Use the finding's original report, claims, reviews, missing_evidence and investigation_steps for rendered preview. Escape HTML and disable raw HTML when rendering Markdown.
+
+Maritime syntax check: `{ "claim_id": "..." }`. Available only when `MARITIME_TOKEN` is configured; requires a verified Python file claim. It retrieves that file at the finding's immutable commit, starts a short-lived network-disabled sandbox, runs only Python's syntax parser, stores the bounded status and sandbox ID under the finding, and requests cleanup. It does not run repository code or establish vulnerability validity.
 
 Issue publication is not configured. Use capabilities to label the button “Prepare issue draft”, then open github_url only after a user click (or copy body to Jira). No server-side Jira/GitHub ticket is silently created. Maritime execution remains optional and disabled: the reference checker never runs repository code.
 
