@@ -1,0 +1,34 @@
+name: Generate auth branch npm lockfile
+
+on:
+  push:
+    branches: [frontend/vulnflow-auth]
+    paths:
+      - '.github/workflows/auth-lockfile.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    if: github.repository == 'utkrishtchopra2008-cpu/NOVEMBER' && github.ref == 'refs/heads/frontend/vulnflow-auth'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Resolve exact npm lockfile without running package scripts
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Commit only generated package-lock.json
+        run: |
+          git add -- package-lock.json
+          if git diff --cached --quiet; then
+            echo "No lockfile change"
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'chore: lock frontend dependencies'
+          git push origin HEAD:frontend/vulnflow-auth
